@@ -39,8 +39,7 @@ class InsightsScreen extends ConsumerWidget {
                 ],
               ),
       ),
-      const SectionHeader('AI savings plan'),
-      const _AiPlanCard(),
+      if (ref.watch(aiCoachProvider).available) ...[const SectionHeader('AI savings plan'), const _AiPlanCard()],
       const SectionHeader('This month'),
       GridView.count(
         crossAxisCount: 2,

@@ -48,9 +48,10 @@ abstract class AiCoach {
   Future<String> chat(String summary, List<ChatTurn> turns);
 }
 
-/// Demo mode: AI needs the backend (it holds the Claude API key).
+/// Used when AI is off: phone-only mode, or a live build made with
+/// --dart-define=AI_ENABLED=false (before Claude credits are added).
 class OfflineAiCoach implements AiCoach {
-  static const message = 'AI needs the Kharcha server. Connect Supabase to turn it on.';
+  static const message = 'The AI coach is coming soon.';
   @override
   bool get available => false;
   @override

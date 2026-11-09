@@ -16,6 +16,10 @@ import 'ui/theme.dart';
 const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 const supabaseKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
 
+/// Build with --dart-define=AI_ENABLED=false to hide the AI features until the
+/// server has a Claude API key.
+const aiEnabled = bool.fromEnvironment('AI_ENABLED', defaultValue: true);
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (supabaseUrl.isEmpty || supabaseKey.isEmpty) {
@@ -62,7 +66,10 @@ class AuthGate extends StatelessWidget {
         if (session == null) return KharchaApp(home: SignInScreen(db: db));
         return ProviderScope(
           key: ValueKey(session.user.id),
-          overrides: [repositoryProvider.overrideWithValue(SupabaseRepository(db)), aiCoachProvider.overrideWithValue(SupabaseAiCoach(db))],
+          overrides: [
+            repositoryProvider.overrideWithValue(SupabaseRepository(db)),
+            aiCoachProvider.overrideWithValue(aiEnabled ? SupabaseAiCoach(db) : OfflineAiCoach()),
+          ],
           child: const KharchaApp(home: AppShell()),
         );
       },

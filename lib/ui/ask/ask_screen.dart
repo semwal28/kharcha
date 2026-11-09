@@ -50,7 +50,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
       final c = s.cats[cat.id]!;
       return '${cat.name}: ${Money.inr(c.spent)} this month (${c.count} spends). Last month by now: ${Money.inr(c.prevSame)}.';
     }
-    return '${OfflineAiCoach.message} For now, try “Swiggy spend?” or “Groceries?”';
+    return 'I can answer questions about a category or shop for now, like “Swiggy spend?” or “Groceries?”. ${OfflineAiCoach.message}';
   }
 
   Future<void> _send(String q) async {
@@ -101,7 +101,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
               Row(
                 children: [
                   Expanded(child: Text('Ask about your money', style: context.text.titleMedium)),
-                  Text(ref.watch(aiCoachProvider).available ? 'Powered by Claude' : 'Offline answers', style: context.text.bodySmall),
+                  Text(ref.watch(aiCoachProvider).available ? 'Powered by Claude' : 'Quick answers', style: context.text.bodySmall),
                 ],
               ),
               const SizedBox(height: 10),
