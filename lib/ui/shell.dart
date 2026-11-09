@@ -4,7 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/money.dart';
-import '../data/demo_repository.dart';
+import '../data/local_repository.dart';
 import '../state/app_state.dart';
 import 'add/add_expense_sheet.dart';
 import 'ask/ask_screen.dart';
@@ -378,7 +378,6 @@ class _SettingsSheetState extends ConsumerState<_SettingsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final k = context.k;
     final repo = ref.watch(repositoryProvider);
     final profile = ref.watch(appDataProvider).value?.profile;
     return Padding(
@@ -389,7 +388,10 @@ class _SettingsSheetState extends ConsumerState<_SettingsSheet> {
         children: [
           Text('Settings', style: context.text.titleLarge),
           const SizedBox(height: 4),
-          Text(repo.isDemo ? 'Demo mode · example data' : (profile?.email ?? 'Signed in'), style: context.text.bodySmall),
+          Text(
+            repo.isLocal ? (repo.hasExampleData ? 'On this phone · example data' : 'Saved on this phone') : (profile?.email ?? 'Signed in'),
+            style: context.text.bodySmall,
+          ),
           const SizedBox(height: 16),
           Text('Monthly take-home income', style: context.text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
@@ -423,37 +425,150 @@ class _SettingsSheetState extends ConsumerState<_SettingsSheet> {
             ],
           ),
           const SizedBox(height: 20),
-          if (repo is DemoRepository)
-            OutlinedButton.icon(
-              onPressed: () async {
-                final nav = Navigator.of(context);
-                repo.reset();
-                await ref.read(appDataProvider.notifier).refresh();
-                nav.pop();
-              },
-              icon: const Icon(Icons.restart_alt_rounded),
-              label: const Text('Reset example data'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(46),
-                foregroundColor: k.ink,
-                side: BorderSide(color: k.line),
+          if (repo is LocalRepository) ...[
+            if (repo.hasExampleData)
+              _SettingsButton(
+                icon: Icons.cleaning_services_outlined,
+                label: 'Start fresh',
+                caption: 'Clears the example data so you can add your own.',
+                onTap: () => _confirm(
+                  title: 'Start fresh?',
+                  body: 'This removes all example expenses. Starter budgets stay, and you can change them.',
+                  action: 'Start fresh',
+                  run: repo.startFresh,
+                  done: 'Ready for your own expenses',
+                ),
+              )
+            else
+              _SettingsButton(
+                icon: Icons.auto_awesome_motion_outlined,
+                label: 'Load example data',
+                caption: 'Replaces your expenses with two months of examples.',
+                onTap: () => _confirm(
+                  title: 'Load example data?',
+                  body: 'This replaces everything you added with example data.',
+                  action: 'Load examples',
+                  run: repo.loadExampleData,
+                  done: 'Example data loaded',
+                ),
               ),
-            )
-          else
-            OutlinedButton.icon(
-              onPressed: () async {
+          ] else ...[
+            _SettingsButton(
+              icon: Icons.logout_rounded,
+              label: 'Sign out',
+              onTap: () async {
                 Navigator.of(context).pop();
                 await repo.signOut();
               },
-              icon: const Icon(Icons.logout_rounded),
-              label: const Text('Sign out'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(46),
-                foregroundColor: k.bad,
-                side: BorderSide(color: k.line),
+            ),
+            const SizedBox(height: 8),
+            _SettingsButton(
+              icon: Icons.delete_forever_outlined,
+              label: 'Delete account',
+              danger: true,
+              caption: 'Deletes your account and every expense, for good.',
+              onTap: () => _confirm(
+                title: 'Delete your account?',
+                body: 'Your account, expenses, categories and budgets will be deleted for good. This can\'t be undone.',
+                action: 'Delete',
+                danger: true,
+                run: repo.deleteAccount,
+                done: 'Account deleted',
               ),
             ),
+          ],
+          const SizedBox(height: 12),
+          Text('Kharcha 0.1.0', textAlign: TextAlign.center, style: context.text.bodySmall),
         ],
+      ),
+    );
+  }
+
+  Future<void> _confirm({
+    required String title,
+    required String body,
+    required String action,
+    required Future<void> Function() run,
+    required String done,
+    bool danger = false,
+  }) async {
+    final k = context.k;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: danger ? FilledButton.styleFrom(backgroundColor: k.bad, foregroundColor: Colors.white) : null,
+            child: Text(action),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final nav = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await run();
+    } catch (e) {
+      if (mounted) messenger.showSnackBar(SnackBar(content: Text(e.toString())));
+      return;
+    }
+    // After deleting an account the app returns to sign-in and this sheet is gone.
+    if (!mounted) return;
+    if (ref.read(repositoryProvider).isLocal) await ref.read(appDataProvider.notifier).refresh();
+    if (!mounted) return;
+    nav.pop();
+    messenger.showSnackBar(SnackBar(content: Text(done)));
+  }
+}
+
+class _SettingsButton extends StatelessWidget {
+  const _SettingsButton({required this.icon, required this.label, required this.onTap, this.caption, this.danger = false});
+  final IconData icon;
+  final String label;
+  final String? caption;
+  final VoidCallback onTap;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final k = context.k;
+    final color = danger ? k.bad : k.ink;
+    return Material(
+      color: k.bg,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: k.line),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(fontWeight: FontWeight.w600, color: color),
+                    ),
+                    if (caption != null) Text(caption!, style: context.text.bodySmall),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: k.muted),
+            ],
+          ),
+        ),
       ),
     );
   }

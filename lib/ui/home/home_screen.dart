@@ -29,14 +29,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final data = ref.watch(appDataProvider).requireValue;
     final s = ref.watch(summaryProvider)!;
-    final isDemo = ref.watch(repositoryProvider).isDemo;
+    final isExample = ref.watch(repositoryProvider).hasExampleData;
     final top = s.leaks.isEmpty ? null : s.leaks.first;
     final topCats = s.cats.values.where((c) => c.spent > 0 && c.category.key != 'rent').toList()..sort((a, b) => b.spent.compareTo(a.spent));
     final top5 = topCats.take(5).toList();
     final list = _showAll ? s.cur : s.cur.take(10).toList();
 
     final blocks = <Widget>[
-      if (isDemo) const _ExampleChip(),
+      if (isExample) const _ExampleChip(),
       _HeroCard(s: s),
       const SectionHeader('Quick add'),
       _QuickAdd(data: data, now: s.now, onAdd: widget.onAdd),
@@ -148,7 +148,7 @@ class _HeroCard extends StatelessWidget {
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
-                              '${Money.inr(diff.abs())} ${diff > 0 ? 'more' : 'less'} than last month',
+                              s.spent == 0 ? 'Nothing spent yet this month' : '${Money.inr(diff.abs())} ${diff > 0 ? 'more' : 'less'} than last month',
                               style: ink.copyWith(fontSize: 13, color: k.heroInk.withValues(alpha: .92)),
                             ),
                           ),

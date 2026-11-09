@@ -16,7 +16,10 @@ class SupabaseRepository implements ExpenseRepository {
   }
 
   @override
-  bool get isDemo => false;
+  bool get isLocal => false;
+
+  @override
+  bool get hasExampleData => false;
 
   @override
   Future<AppData> load() async {
@@ -100,6 +103,35 @@ class SupabaseRepository implements ExpenseRepository {
         .single();
     return _txn(row);
   });
+
+  @override
+  Future<Txn> updateTxn(Txn t) => _guard('save the expense', () async {
+    final row = await _db
+        .from('transactions')
+        .update({
+          'amount_paise': t.amountPaise,
+          'category_id': t.categoryId,
+          'note': t.note,
+          'merchant': t.merchant,
+          'pay_method': t.pay.label,
+          'spent_at': t.spentAt.toUtc().toIso8601String(),
+        })
+        .eq('id', t.id)
+        .select('id,amount_paise,category_id,note,merchant,pay_method,spent_at,is_recurring')
+        .single();
+    return _txn(row);
+  });
+
+  @override
+  Future<void> deleteAccount() async {
+    try {
+      await _db.functions.invoke('delete-account');
+    } on FunctionException catch (e) {
+      final details = e.details;
+      throw RepoException(details is Map && details['message'] is String ? details['message'] as String : 'Could not delete your account. Try again.');
+    }
+    await _db.auth.signOut();
+  }
 
   @override
   Future<void> updateTxnCategory(String txnId, String categoryId) =>

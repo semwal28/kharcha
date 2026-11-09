@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'data/demo_repository.dart';
+import 'data/local_repository.dart';
 import 'data/supabase_repository.dart';
 import 'services/ai_coach.dart';
 import 'state/app_state.dart';
@@ -12,7 +12,7 @@ import 'ui/theme.dart';
 
 /// Pass these at build time to connect the live backend:
 ///   flutter run --dart-define=SUPABASE_URL=https://xyz.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
-/// Without them the app runs in demo mode with example data.
+/// Without them the app saves everything on the phone (starting with example data).
 const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 const supabaseKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
 
@@ -21,14 +21,14 @@ Future<void> main() async {
   if (supabaseUrl.isEmpty || supabaseKey.isEmpty) {
     runApp(
       ProviderScope(
-        overrides: [repositoryProvider.overrideWithValue(DemoRepository())],
+        overrides: [repositoryProvider.overrideWithValue(LocalRepository(store: PrefsStore()))],
         child: const KharchaApp(home: AppShell()),
       ),
     );
     return;
   }
   await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseKey);
-  runApp(const KharchaApp(home: AuthGate()));
+  runApp(const AuthGate());
 }
 
 class KharchaApp extends StatelessWidget {
@@ -47,7 +47,8 @@ class KharchaApp extends StatelessWidget {
 }
 
 /// Shows sign-in until there is a session, then the app with a fresh state
-/// for that user.
+/// for that user. The ProviderScope sits above MaterialApp so sheets and
+/// dialogs (which open on the app's navigator) can read the same state.
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
@@ -58,11 +59,11 @@ class AuthGate extends StatelessWidget {
       stream: db.auth.onAuthStateChange,
       builder: (context, _) {
         final session = db.auth.currentSession;
-        if (session == null) return SignInScreen(db: db);
+        if (session == null) return KharchaApp(home: SignInScreen(db: db));
         return ProviderScope(
           key: ValueKey(session.user.id),
           overrides: [repositoryProvider.overrideWithValue(SupabaseRepository(db)), aiCoachProvider.overrideWithValue(SupabaseAiCoach(db))],
-          child: const AppShell(),
+          child: const KharchaApp(home: AppShell()),
         );
       },
     );

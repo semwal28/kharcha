@@ -85,13 +85,27 @@ class Txn {
   /// Used to spot double charges and repeat spends.
   String get matchKey => (merchant?.trim().isNotEmpty ?? false) ? merchant!.trim().toLowerCase() : (note ?? '').trim().toLowerCase();
 
-  Txn copyWith({String? id, String? categoryId}) => Txn(
+  Txn copyWith({String? id, String? categoryId, int? amountPaise, DateTime? spentAt, PayMethod? pay}) => Txn(
     id: id ?? this.id,
-    amountPaise: amountPaise,
+    amountPaise: amountPaise ?? this.amountPaise,
     categoryId: categoryId ?? this.categoryId,
-    spentAt: spentAt,
+    spentAt: spentAt ?? this.spentAt,
     note: note,
     merchant: merchant,
+    pay: pay ?? this.pay,
+    isRecurring: isRecurring,
+  );
+
+  /// Same expense with a new note (null clears it). The note also becomes the
+  /// merchant label for expenses typed by hand.
+  Txn withNote(String? newNote) => Txn(
+    id: id,
+    amountPaise: amountPaise,
+    categoryId: categoryId,
+    spentAt: spentAt,
+    note: newNote,
+    // Hand-typed expenses use the note as the merchant label too.
+    merchant: merchant == note ? newNote : merchant,
     pay: pay,
     isRecurring: isRecurring,
   );

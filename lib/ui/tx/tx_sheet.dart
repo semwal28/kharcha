@@ -146,6 +146,26 @@ class _TxSheet extends ConsumerWidget {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
+                  onPressed: () async {
+                    // The detail sheet closes first, so open the editor from the app's navigator.
+                    final navContext = Navigator.of(context).context;
+                    final messenger = ScaffoldMessenger.of(context);
+                    Navigator.pop(context);
+                    final result = await openEditSheet(navContext, current);
+                    if (result != null) messenger.showSnackBar(SnackBar(content: Text('Saved ${Money.inr(result.amountPaise)} · ${result.categoryName}')));
+                  },
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: const Text('Edit'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(46),
+                    foregroundColor: k.ink,
+                    side: BorderSide(color: k.line),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
                   onPressed: () {
                     Navigator.pop(context);
                     onAddAgain(AddPrefill(amountPaise: current.amountPaise, categoryId: current.categoryId, note: current.titleOr(cat.name), pay: current.pay));
@@ -159,7 +179,11 @@ class _TxSheet extends ConsumerWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
               Expanded(
                 child: FilledButton.icon(
                   onPressed: () async {

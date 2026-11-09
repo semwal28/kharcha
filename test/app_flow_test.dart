@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kharcha/data/demo_repository.dart';
+import 'package:kharcha/data/local_repository.dart';
 import 'package:kharcha/main.dart';
 import 'package:kharcha/state/app_state.dart';
 import 'package:kharcha/ui/shell.dart';
+import 'package:kharcha/ui/tx/tx_sheet.dart';
 
 DateTime _clock() => DateTime(2026, 11, 9, 19, 30);
 
-Future<DemoRepository> _start(WidgetTester tester) async {
+Future<LocalRepository> _start(WidgetTester tester) async {
   tester.view.physicalSize = const Size(390 * 3, 844 * 3);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
-  final repo = DemoRepository(clock: _clock);
+  final repo = LocalRepository(clock: _clock);
   await tester.pumpWidget(
     ProviderScope(
       overrides: [repositoryProvider.overrideWithValue(repo), clockProvider.overrideWithValue(_clock)],
@@ -111,5 +112,38 @@ void main() {
     await tester.tap(find.text('Food delivery spend?'));
     await _settle(tester, 1);
     expect(find.textContaining('Food delivery: ₹'), findsOneWidget); // offline answer in demo mode
+  });
+
+  testWidgets('edit an expense from its detail sheet', (tester) async {
+    final repo = await _start(tester);
+    await tester.tap(find.text('Add'));
+    await _settle(tester, 1);
+    await tester.enterText(find.byType(TextField).first, 'Team lunch');
+    await _type(tester, '400');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Add ₹400 · Dining & cafés'));
+    await _settle(tester);
+
+    final row = find.descendant(of: find.byType(TxTile), matching: find.text('Team lunch'));
+    await tester.dragUntilVisible(row, find.byKey(const ValueKey('home-list')), const Offset(0, -300));
+    await tester.ensureVisible(row);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(row);
+    await _settle(tester, 1);
+    await tester.tap(find.text('Edit'));
+    await _settle(tester, 1);
+    expect(find.text('Edit expense'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('key-del')));
+    await tester.tap(find.byKey(const ValueKey('key-del')));
+    await _type(tester, '50'); // 400 -> 4 -> 450
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Save ₹450 · Dining & cafés'));
+    await _settle(tester, 2);
+
+    final data = await repo.load();
+    final t = data.txns.where((t) => t.note == 'Team lunch').toList();
+    expect(t, hasLength(1));
+    expect(t.single.amountPaise, 45000);
   });
 }

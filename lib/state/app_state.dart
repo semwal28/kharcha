@@ -77,6 +77,23 @@ class AppDataNotifier extends AsyncNotifier<AppData> {
     );
   }
 
+  /// Saves an edited expense. [newCategoryName] works as in [addTxn].
+  Future<Txn> updateTxn(Txn updated, {String? newCategoryName}) async {
+    var t = updated;
+    if (newCategoryName != null && newCategoryName.trim().isNotEmpty) {
+      final cat = await _repo.addCustomCategory(newCategoryName);
+      t = t.copyWith(categoryId: cat.id);
+      if (!_data.categories.any((c) => c.id == cat.id)) {
+        state = AsyncData(_data.copyWith(categories: [..._data.categories, cat]));
+      }
+    }
+    return _optimistic<Txn>(
+      _data.copyWith(txns: [for (final x in _data.txns) x.id == t.id ? t : x]),
+      () => _repo.updateTxn(t),
+      apply: (saved) => _data.copyWith(txns: [for (final x in _data.txns) x.id == saved.id ? saved : x]),
+    );
+  }
+
   Future<void> changeCategory(String txnId, String categoryId) => _optimistic(
     _data.copyWith(txns: [for (final x in _data.txns) x.id == txnId ? x.copyWith(categoryId: categoryId) : x]),
     () => _repo.updateTxnCategory(txnId, categoryId),

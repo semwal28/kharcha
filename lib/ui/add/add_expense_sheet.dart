@@ -20,8 +20,16 @@ class AddPrefill {
 }
 
 class AddResult {
-  const AddResult({required this.txnId, required this.amountPaise, required this.categoryName, required this.newCategory, required this.when});
+  const AddResult({
+    required this.txnId,
+    required this.amountPaise,
+    required this.categoryName,
+    required this.newCategory,
+    required this.when,
+    this.edited = false,
+  });
   final String txnId;
+  final bool edited;
   final int amountPaise;
   final String categoryName;
   final bool newCategory;
@@ -35,9 +43,20 @@ Future<AddResult?> openAddSheet(BuildContext context, {AddPrefill? prefill}) => 
   builder: (_) => AddExpenseSheet(prefill: prefill),
 );
 
+/// Opens the same sheet to change an existing expense.
+Future<AddResult?> openEditSheet(BuildContext context, Txn txn) => showModalBottomSheet<AddResult>(
+  context: context,
+  isScrollControlled: true,
+  useSafeArea: true,
+  builder: (_) => AddExpenseSheet(editing: txn),
+);
+
 class AddExpenseSheet extends ConsumerStatefulWidget {
-  const AddExpenseSheet({super.key, this.prefill});
+  const AddExpenseSheet({super.key, this.prefill, this.editing});
   final AddPrefill? prefill;
+
+  /// When set, the sheet edits this expense instead of adding a new one.
+  final Txn? editing;
 
   @override
   ConsumerState<AddExpenseSheet> createState() => _AddExpenseSheetState();
@@ -46,14 +65,16 @@ class AddExpenseSheet extends ConsumerStatefulWidget {
 class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
   static const _maxDigits = 8;
 
-  late String _amt = widget.prefill?.amountPaise != null ? '${(widget.prefill!.amountPaise! / 100).round()}' : '';
-  late String? _catId = widget.prefill?.categoryId;
-  late bool _catTouched = widget.prefill?.categoryId != null;
+  late final Txn? _editing = widget.editing;
+  late final int? _startPaise = _editing?.amountPaise ?? widget.prefill?.amountPaise;
+  late String _amt = _startPaise != null ? '${(_startPaise / 100).round()}' : '';
+  late String? _catId = _editing?.categoryId ?? widget.prefill?.categoryId;
+  late bool _catTouched = _catId != null;
   bool _autoPicked = false;
-  late final _note = TextEditingController(text: widget.prefill?.note ?? '');
+  late final _note = TextEditingController(text: _editing != null ? (_editing.note ?? _editing.merchant ?? '') : (widget.prefill?.note ?? ''));
   final _otherName = TextEditingController();
-  late DateTime _date = dateOnly(ref.read(clockProvider)());
-  late PayMethod _pay = widget.prefill?.pay ?? PayMethod.upi;
+  late DateTime _date = dateOnly(_editing?.spentAt ?? ref.read(clockProvider)());
+  late PayMethod _pay = _editing?.pay ?? widget.prefill?.pay ?? PayMethod.upi;
   int _popTick = 0;
   int _shakeTick = 0;
   bool _saving = false;
@@ -132,6 +153,42 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
         newName != null && d.categories.any((c) => c.name.toLowerCase() == newName.toLowerCase() || c.shortName.toLowerCase() == newName.toLowerCase());
     setState(() => _saving = true);
     final navigator = Navigator.of(context);
+    final note = _note.text.trim().isEmpty ? null : _note.text.trim();
+    final editing = _editing;
+    if (editing != null) {
+      try {
+        final at = editing.spentAt;
+        final saved = await ref
+            .read(appDataProvider.notifier)
+            .updateTxn(
+              editing
+                  .withNote(note)
+                  .copyWith(
+                    amountPaise: rupees * 100,
+                    categoryId: _catId,
+                    spentAt: DateTime(_date.year, _date.month, _date.day, at.hour, at.minute),
+                    pay: _pay,
+                  ),
+              newCategoryName: newName,
+            );
+        final cat = ref.read(appDataProvider).requireValue.cat(saved.categoryId);
+        navigator.pop(
+          AddResult(
+            txnId: saved.id,
+            amountPaise: saved.amountPaise,
+            categoryName: cat.name,
+            newCategory: newName != null && !hadCategory,
+            when: dayLabel(_date, now),
+            edited: true,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _saving = false);
+        toast(context, e.toString());
+      }
+      return;
+    }
     try {
       final txn = await ref
           .read(appDataProvider.notifier)
@@ -140,7 +197,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
               amountPaise: rupees * 100,
               categoryId: _catId!,
               spentAt: DateTime(_date.year, _date.month, _date.day, now.hour, now.minute),
-              note: _note.text.trim().isEmpty ? null : _note.text.trim(),
+              note: note,
               pay: _pay,
             ),
             newCategoryName: newName,
@@ -193,7 +250,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
         ? 'Enter an amount'
         : _catId == null
         ? 'Pick a category'
-        : 'Add ${Money.rupees(rupees)} · ${_catLabel(d)}';
+        : '${_editing != null ? 'Save' : 'Add'} ${Money.rupees(rupees)} · ${_catLabel(d)}';
 
     return Focus(
       focusNode: _keys,
@@ -210,7 +267,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Add expense', style: context.text.titleLarge),
+                    Text(_editing != null ? 'Edit expense' : 'Add expense', style: context.text.titleLarge),
                     _AmountDisplay(amount: _amt, popTick: _popTick, shakeTick: _shakeTick),
                     _Label('Note', trailing: Text('optional', style: context.text.bodySmall)),
                     TextField(
