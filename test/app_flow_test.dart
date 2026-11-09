@@ -1,0 +1,115 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:kharcha/data/demo_repository.dart';
+import 'package:kharcha/main.dart';
+import 'package:kharcha/state/app_state.dart';
+import 'package:kharcha/ui/shell.dart';
+
+DateTime _clock() => DateTime(2026, 11, 9, 19, 30);
+
+Future<DemoRepository> _start(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(390 * 3, 844 * 3);
+  tester.view.devicePixelRatio = 3;
+  addTearDown(tester.view.reset);
+  final repo = DemoRepository(clock: _clock);
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [repositoryProvider.overrideWithValue(repo), clockProvider.overrideWithValue(_clock)],
+      child: const KharchaApp(home: AppShell()),
+    ),
+  );
+  await tester.pump();
+  await tester.pump(const Duration(seconds: 2));
+  return repo;
+}
+
+/// Lets entrance animations, the success burst and the highlight timer finish.
+Future<void> _settle(WidgetTester tester, [int seconds = 4]) async {
+  for (var i = 0; i < seconds * 4; i++) {
+    await tester.pump(const Duration(milliseconds: 250));
+  }
+}
+
+Future<void> _type(WidgetTester tester, String digits) async {
+  for (final d in digits.split('')) {
+    await tester.tap(find.byKey(ValueKey('key-$d')));
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
+void main() {
+  testWidgets('home shows the month, tips and recent spends', (tester) async {
+    await _start(tester);
+    expect(find.text('SPENT IN NOVEMBER'), findsOneWidget);
+    expect(find.text('Quick add'), findsOneWidget);
+    expect(find.text('Smart tip'), findsOneWidget);
+    expect(find.text('Where it went'), findsOneWidget);
+    await _settle(tester, 2);
+  });
+
+  testWidgets('add an expense: note auto-picks the category', (tester) async {
+    final repo = await _start(tester);
+    await tester.tap(find.text('Add'));
+    await _settle(tester, 1);
+
+    await tester.enterText(find.byType(TextField).first, 'Petrol for bike');
+    await tester.pump();
+    await _type(tester, '250');
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Add ₹250 · Transport'), findsOneWidget);
+    expect(find.text('Auto-picked'), findsOneWidget);
+
+    await tester.tap(find.text('Add ₹250 · Transport'));
+    await _settle(tester);
+
+    final data = await repo.load();
+    final added = data.txns.firstWhere((t) => t.note == 'Petrol for bike');
+    expect(added.amountPaise, 25000);
+    expect(data.cat(added.categoryId).key, 'transport');
+    // Shown at the top of Recent on Home.
+    await tester.dragUntilVisible(find.text('Petrol for bike'), find.byKey(const ValueKey('home-list')), const Offset(0, -300));
+    expect(find.text('Petrol for bike'), findsWidgets);
+    await _settle(tester, 2);
+  });
+
+  testWidgets('Other with a name creates a new category', (tester) async {
+    final repo = await _start(tester);
+    await tester.tap(find.text('Add'));
+    await _settle(tester, 1);
+
+    await tester.tap(find.byKey(const ValueKey('cat-other')));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.enterText(find.byType(TextField).at(1), 'gifts');
+    await _type(tester, '999');
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Add ₹999 · Gifts'), findsOneWidget);
+
+    await tester.tap(find.text('Add ₹999 · Gifts'));
+    await _settle(tester);
+
+    final data = await repo.load();
+    final gifts = data.categories.where((c) => c.name == 'Gifts');
+    expect(gifts, hasLength(1));
+    expect(gifts.single.isCustom, isTrue);
+    expect(data.txns.any((t) => t.categoryId == gifts.single.id && t.amountPaise == 99900), isTrue);
+  });
+
+  testWidgets('tabs open Insights, Budgets and Ask AI', (tester) async {
+    await _start(tester);
+    await tester.tap(find.text('Insights'));
+    await _settle(tester, 2);
+    expect(find.text('YOU COULD SAVE'), findsOneWidget);
+    expect(find.text('Where to save'), findsOneWidget);
+
+    await tester.tap(find.text('Budgets'));
+    await _settle(tester, 2);
+    expect(find.text('Suggested budgets'), findsOneWidget);
+
+    await tester.tap(find.text('Ask AI'));
+    await _settle(tester, 1);
+    await tester.tap(find.text('Food delivery spend?'));
+    await _settle(tester, 1);
+    expect(find.textContaining('Food delivery: ₹'), findsOneWidget); // offline answer in demo mode
+  });
+}
