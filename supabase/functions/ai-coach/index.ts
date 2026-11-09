@@ -11,7 +11,7 @@
 //   CLAUDE_MODEL        optional, defaults to claude-opus-5-5
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided by Supabase.
 
-import Anthropic from "npm:@anthropic-ai/sdk@1.7.0";
+import Anthropic from "npm:@anthropic-ai/sdk@1.2.0";
 import { createClient } from "npm:@supabase/supabase-js@2.119.0";
 
 const MODEL = Deno.env.get("CLAUDE_MODEL") ?? "claude-opus-5-5";
