@@ -4,6 +4,13 @@ An expense tracker for Android and iOS. It shows where your money goes and finds
 
 Built with Flutter (one codebase for Android, iOS and web) and Supabase (login, Postgres database, server functions).
 
+<p>
+  <img src="docs/screenshots/home.png" width="200" alt="Home screen">
+  <img src="docs/screenshots/add-expense.png" width="200" alt="Add expense">
+  <img src="docs/screenshots/insights.png" width="200" alt="Insights">
+  <img src="docs/screenshots/budgets.png" width="200" alt="Budgets">
+</p>
+
 ## What works today
 
 - **Add an expense in seconds:** keypad, note, category, date and payment method. Typing a note like "petrol" or "Swiggy" picks the category for you.
