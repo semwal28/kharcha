@@ -29,9 +29,9 @@ keyAlias=upload
 keyPassword=...
 ```
 
-### Use the same key for GitHub Releases
+### Give the key to GitHub Releases (required)
 
-So that each APK on GitHub Releases installs as an update, give the release workflow your key. In the repository, open **Settings → Secrets and variables → Actions → New repository secret** and add:
+Every APK must be signed with the same key, or Android refuses to install it as an update. The release workflow only publishes when it has the key. In the repository, open **Settings → Secrets and variables → Actions → New repository secret** and add:
 
 | Secret | Value |
 |---|---|
@@ -40,7 +40,9 @@ So that each APK on GitHub Releases installs as an update, give the release work
 | `ANDROID_KEY_ALIAS` | `upload` |
 | `ANDROID_KEY_PASSWORD` | the key password |
 
-Without them, each release is signed with a temporary test key, and people have to uninstall the old version first.
+Without them, the workflow publishes nothing and leaves a warning. After adding them, open **Actions → Release → Run workflow** to publish the current version.
+
+Keep the `.jks` file and its password backed up somewhere safe (a password manager). If they are lost, the next version can't update installed copies.
 
 ## GitHub Release (APKs for testers)
 

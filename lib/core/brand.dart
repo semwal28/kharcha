@@ -4,7 +4,7 @@ import '../ui/theme.dart';
 
 /// The product name, used everywhere the app names itself.
 const kAppName = 'Spendwell';
-const kAppVersion = '0.3.3';
+const kAppVersion = '0.3.4';
 const kTagline = 'Know where your money goes.';
 
 /// The app's logo: a rounded tile with a bold "S" and a small gold dot.

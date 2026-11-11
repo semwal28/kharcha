@@ -3,6 +3,11 @@ name: Release
 # Publishes a GitHub Release with both Android APKs whenever the version in
 # pubspec.yaml has no release yet. Raise the version, push to main, done.
 # Notes come from docs/releases/v<version>.md.
+#
+# APKs are always signed with the app's permanent key, so each release
+# installs as an update. The key lives in these repository secrets (see
+# docs/RELEASE.md): ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+# ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD. Without them nothing is released.
 on:
   push:
     branches: [main]
@@ -22,10 +27,14 @@ jobs:
       - id: v
         env:
           GH_TOKEN: ${{ github.token }}
+          HAS_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
         run: |
           tag="v$(sed -n 's/^version: *\([^+ ]*\).*/\1/p' pubspec.yaml)"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if [ "$HAS_KEY" != "true" ]; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Signing key secrets are not set, so $tag is not released. See docs/RELEASE.md."
+          elif gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "needed=false" >> "$GITHUB_OUTPUT"
             echo "$tag is already released."
           elif [ ! -f "docs/releases/$tag.md" ]; then
@@ -56,10 +65,6 @@ jobs:
           channel: stable
           cache: true
 
-      # Optional: sign with your own key so every release installs as an
-      # update. Add these repository secrets (see docs/RELEASE.md):
-      # ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS,
-      # ANDROID_KEY_PASSWORD. Without them, a temporary test key is used.
       - name: Signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -67,9 +72,9 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::warning::No signing key secrets set; using a temporary test key."
-            exit 0
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::A signing key secret is missing. See docs/RELEASE.md."
+            exit 1
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
           {
