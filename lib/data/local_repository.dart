@@ -33,10 +33,15 @@ class MemoryStore implements KeyValueStore {
   Future<void> write(String? v) async => value = v;
 }
 
-/// Phone-only store: works with no account and no internet. Starts with two
-/// months of example data, which the user can clear ("Start fresh").
+/// Phone-only store: works with no account and no internet. Starts empty,
+/// with no budgets. Settings can load two months of example data.
 class LocalRepository implements ExpenseRepository {
-  LocalRepository({KeyValueStore? store, DateTime Function()? clock}) : _store = store ?? MemoryStore(), _clock = clock ?? DateTime.now;
+  LocalRepository({KeyValueStore? store, DateTime Function()? clock, this.exampleOnFirstRun = false})
+    : _store = store ?? MemoryStore(),
+      _clock = clock ?? DateTime.now;
+
+  /// Load example data the very first time instead of starting empty.
+  final bool exampleOnFirstRun;
 
   final KeyValueStore _store;
   final DateTime Function() _clock;
@@ -55,13 +60,13 @@ class LocalRepository implements ExpenseRepository {
   @override
   bool get hasExampleData => _example;
 
-  Map<String, int> get _starterBudgets => {for (final e in demoBudgetsRupees.entries) e.key: (e.value * Money.currency.scale).round() * 100};
+  Map<String, int> get _exampleBudgets => {for (final e in demoBudgetsRupees.entries) e.key: (e.value * Money.currency.scale).round() * 100};
 
   /// Two months of example spending (the state a new user sees first).
   Future<void> loadExampleData() async {
     _cats = List.of(builtinCategories);
     _txns = generateSampleTxns(_clock(), scale: Money.currency.scale);
-    _budgets = _starterBudgets;
+    _budgets = _exampleBudgets;
     _profile = Profile(monthlyIncomePaise: Money.scaled(6500000), displayName: 'Demo');
     final now = _clock();
     _goals = [Goal(id: 'g-demo', name: 'Goa trip', targetPaise: Money.scaled(2000000), savedPaise: Money.scaled(850000))];
@@ -70,11 +75,12 @@ class LocalRepository implements ExpenseRepository {
     await _save();
   }
 
-  /// Clears expenses and custom categories. Keeps starter budgets to edit.
+  /// Clears everything: expenses, custom categories, budgets, income, goals
+  /// and splits. Every budget is back to 0 (not set).
   Future<void> startFresh() async {
     _cats = List.of(builtinCategories);
     _txns = [];
-    _budgets = _starterBudgets;
+    _budgets = {};
     _profile = const Profile();
     _goals = [];
     _splits = [];
@@ -126,7 +132,7 @@ class LocalRepository implements ExpenseRepository {
     _loaded = true;
     final raw = await _store.read();
     if (raw == null) {
-      await loadExampleData();
+      await (exampleOnFirstRun ? loadExampleData() : startFresh());
       return;
     }
     try {
@@ -164,9 +170,8 @@ class LocalRepository implements ExpenseRepository {
           ),
       ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     } catch (_) {
-      // Unreadable data (e.g. an older format): start again with examples
-      // rather than crash.
-      await loadExampleData();
+      // Unreadable data (e.g. an older format): start again rather than crash.
+      await (exampleOnFirstRun ? loadExampleData() : startFresh());
     }
   }
 

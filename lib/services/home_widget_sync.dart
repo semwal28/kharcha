@@ -11,7 +11,7 @@ abstract final class HomeWidgetSync {
 
   static Future<void> push(MonthSummary? s) async {
     if (!supported || s == null) return;
-    final safe = Money.fmt(s.safeToday);
+    final safe = s.totalBudget > 0 ? Money.fmt(s.safeToday) : 'Set a budget';
     final spent = 'Spent in ${s.monthName}: ${Money.fmt(s.spent)}';
     final pct = s.totalBudget > 0 ? '${(s.budgetUsed * 100).round()}% of budget used' : '';
     final key = '$safe|$spent|$pct';

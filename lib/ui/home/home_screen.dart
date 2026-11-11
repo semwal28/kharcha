@@ -116,6 +116,7 @@ class _HeroCard extends StatelessWidget {
     final k = context.k;
     final diff = s.spent - s.prevSameTotal;
     final pct = (s.budgetUsed * 100).round();
+    final noBudget = s.totalBudget <= 0;
     final ink = TextStyle(color: k.heroInk, fontFamily: kBody);
     return AuroraBackground(
       child: Padding(
@@ -166,23 +167,33 @@ class _HeroCard extends StatelessWidget {
                   stroke: 8,
                   track: k.heroInk.withValues(alpha: .18),
                   color: s.budgetUsed > 1 ? k.bad : k.pop,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CountUp(
-                        value: pct.toDouble(),
-                        format: (v) => '${v.round()}%',
-                        style: ink.copyWith(fontSize: 17, fontWeight: FontWeight.w700),
-                      ),
-                      Text('of budget', style: ink.copyWith(fontSize: 10, color: k.heroInk.withValues(alpha: .85))),
-                    ],
-                  ),
+                  child: noBudget
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.flag_outlined, size: 20, color: k.heroInk),
+                            Text('No budget', style: ink.copyWith(fontSize: 10, color: k.heroInk.withValues(alpha: .85))),
+                          ],
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CountUp(
+                              value: pct.toDouble(),
+                              format: (v) => '${v.round()}%',
+                              style: ink.copyWith(fontSize: 17, fontWeight: FontWeight.w700),
+                            ),
+                            Text('of budget', style: ink.copyWith(fontSize: 10, color: k.heroInk.withValues(alpha: .85))),
+                          ],
+                        ),
                 ),
               ],
             ),
             const SizedBox(height: 14),
             Semantics(
-              label: '$pct% of budget used, ${(s.monthProgress * 100).round()}% of the month gone',
+              label: noBudget
+                  ? 'No budget set, ${(s.monthProgress * 100).round()}% of the month gone'
+                  : '$pct% of budget used, ${(s.monthProgress * 100).round()}% of the month gone',
               child: GrowBar(
                 fraction: s.budgetUsed,
                 color: k.heroInk,
@@ -197,7 +208,10 @@ class _HeroCard extends StatelessWidget {
               alignment: WrapAlignment.spaceBetween,
               spacing: 12,
               children: [
-                Text('Budget ${Money.fmt(s.totalBudget)}', style: ink.copyWith(fontSize: 12, color: k.heroInk.withValues(alpha: .85))),
+                Text(
+                  noBudget ? 'No budget yet · set one in Plan' : 'Budget ${Money.fmt(s.totalBudget)}',
+                  style: ink.copyWith(fontSize: 12, color: k.heroInk.withValues(alpha: .85)),
+                ),
                 Text('Yellow line = today', style: ink.copyWith(fontSize: 12, color: k.heroInk.withValues(alpha: .85))),
               ],
             ),
@@ -205,7 +219,7 @@ class _HeroCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: _HeroStat(label: 'Safe to spend today', paise: s.safeToday),
+                  child: _HeroStat(label: 'Safe to spend today', paise: s.safeToday, text: noBudget ? 'Set a budget' : null),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -221,9 +235,12 @@ class _HeroCard extends StatelessWidget {
 }
 
 class _HeroStat extends StatelessWidget {
-  const _HeroStat({required this.label, required this.paise});
+  const _HeroStat({required this.label, required this.paise, this.text});
   final String label;
   final double paise;
+
+  /// Shown instead of the amount, e.g. "Set a budget".
+  final String? text;
 
   @override
   Widget build(BuildContext context) {
@@ -241,12 +258,20 @@ class _HeroStat extends StatelessWidget {
             style: TextStyle(fontSize: 12, color: k.heroInk.withValues(alpha: .85)),
           ),
           const SizedBox(height: 2),
-          CountUp(
-            value: paise,
-            format: Money.fmt,
-            delay: const Duration(milliseconds: 300),
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: k.heroInk),
-          ),
+          if (text != null)
+            Text(
+              text!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: k.heroInk),
+            )
+          else
+            CountUp(
+              value: paise,
+              format: Money.fmt,
+              delay: const Duration(milliseconds: 300),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: k.heroInk),
+            ),
         ],
       ),
     );

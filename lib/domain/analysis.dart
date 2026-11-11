@@ -344,15 +344,16 @@ List<Leak> findLeaks(AppData data, List<Txn> cur, List<Txn> prev) {
 }
 
 /// Suggested budgets: fixed costs as they are, day-to-day 10% below last month.
+/// Categories with no spending last month are left out.
 Map<String, int> suggestBudgets(MonthSummary s) {
   int round100(num paise) => ((paise / 10000).round() * 10000);
-  return {
-    for (final c in s.cats.values)
-      if (c.category.key != 'fees')
-        c.category.id: c.category.isFixed
-            ? round100(math.max(c.prev, c.recExpected))
-            : (c.prev == 0 && c.category.isCustom ? 0 : math.max(Money.scaled(50000), round100(c.prev * 0.9))),
-  };
+  final out = <String, int>{};
+  for (final c in s.cats.values) {
+    if (c.category.key == 'fees') continue;
+    final v = c.category.isFixed ? round100(math.max(c.prev, c.recExpected)) : (c.prev == 0 ? 0 : math.max(Money.scaled(50000), round100(c.prev * 0.9)));
+    if (v > 0) out[c.category.id] = v;
+  }
+  return out;
 }
 
 /// Plain-text snapshot of the month for the AI coach. Sent to the server,

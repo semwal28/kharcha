@@ -101,6 +101,7 @@ void main() {
       expect(b['rent'], 1500000);
       expect(b['dining'], 270000);
       expect(b.containsKey('fees'), isFalse);
+      expect(b.containsKey('shopping'), isFalse); // nothing spent there last month
     });
   });
 

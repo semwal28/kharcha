@@ -17,14 +17,15 @@ class BudgetsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(summaryProvider)!;
     final data = ref.watch(appDataProvider).requireValue;
+    final suggested = suggestBudgets(s);
     final k = context.k;
     final left = s.totalBudget - s.spent;
     final rows = s.cats.values.where((c) => c.category.key != 'fees' || c.spent > 0).toList()
       ..sort((a, b) => a.category.sortOrder.compareTo(b.category.sortOrder));
 
     final blocks = <Widget>[
-      if (data.extrasAvailable) ...[const GoalsSection(), const OwedSection()] else const ExtrasMissingCard(),
-      const RepeatsSection(),
+      if (data.extrasAvailable) ...[const GoalsSection(), if (data.splits.isNotEmpty) const OwedSection()] else const ExtrasMissingCard(),
+      if (data.txns.any((t) => t.isRecurring)) const RepeatsSection(),
       const SectionHeader('Budgets'),
       KCard(
         child: Row(
@@ -88,33 +89,34 @@ class BudgetsScreen extends ConsumerWidget {
           ],
         ),
       ),
-      KCard(
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Suggested budgets', style: context.text.titleSmall),
-                  Text('10% below last month', style: context.text.bodySmall),
-                ],
+      if (suggested.isNotEmpty)
+        KCard(
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Suggested budgets', style: context.text.titleSmall),
+                    Text('10% below last month', style: context.text.bodySmall),
+                  ],
+                ),
               ),
-            ),
-            FilledButton.tonal(
-              onPressed: () async {
-                try {
-                  await ref.read(appDataProvider.notifier).setBudgets(suggestBudgets(s));
-                  if (context.mounted) toast(context, 'Suggested budgets applied');
-                } catch (e) {
-                  if (context.mounted) toast(context, e.toString());
-                }
-              },
-              style: FilledButton.styleFrom(backgroundColor: k.surface2, foregroundColor: k.ink),
-              child: const Text('Apply'),
-            ),
-          ],
+              FilledButton.tonal(
+                onPressed: () async {
+                  try {
+                    await ref.read(appDataProvider.notifier).setBudgets(suggested);
+                    if (context.mounted) toast(context, 'Suggested budgets applied');
+                  } catch (e) {
+                    if (context.mounted) toast(context, e.toString());
+                  }
+                },
+                style: FilledButton.styleFrom(backgroundColor: k.surface2, foregroundColor: k.ink),
+                child: const Text('Apply'),
+              ),
+            ],
+          ),
         ),
-      ),
       KCard(
         child: Column(
           children: [

@@ -10,11 +10,11 @@ import 'package:kharcha/ui/tx/tx_sheet.dart';
 
 DateTime _clock() => DateTime(2026, 11, 9, 19, 30);
 
-Future<LocalRepository> _start(WidgetTester tester) async {
+Future<LocalRepository> _start(WidgetTester tester, {bool example = true}) async {
   tester.view.physicalSize = const Size(390 * 3, 844 * 3);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
-  final repo = LocalRepository(clock: _clock);
+  final repo = LocalRepository(clock: _clock, exampleOnFirstRun: example);
   await tester.pumpWidget(
     ProviderScope(
       overrides: [repositoryProvider.overrideWithValue(repo), clockProvider.overrideWithValue(_clock)],
@@ -48,6 +48,17 @@ void main() {
     expect(find.text('Smart tip'), findsOneWidget);
     expect(find.text('Where it went'), findsOneWidget);
     await _settle(tester, 2);
+  });
+
+  testWidgets('a new install starts at 0 with no budget', (tester) async {
+    await _start(tester, example: false);
+    expect(find.text('No budget yet · set one in Plan'), findsOneWidget);
+    expect(find.text('Set a budget'), findsOneWidget);
+    expect(find.text('No expenses yet'), findsOneWidget);
+    await tester.tap(find.text('Plan'));
+    await _settle(tester, 2);
+    expect(find.text('Suggested budgets'), findsNothing);
+    expect(find.text('No budget'), findsWidgets);
   });
 
   testWidgets('add an expense: note auto-picks the category', (tester) async {

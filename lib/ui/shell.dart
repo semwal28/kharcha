@@ -503,7 +503,7 @@ class _SettingsSheetState extends ConsumerState<_SettingsSheet> {
                 caption: 'Clears the example data so you can add your own.',
                 onTap: () => _confirm(
                   title: 'Start fresh?',
-                  body: 'This removes all example expenses. Starter budgets stay, and you can change them.',
+                  body: 'This removes all example expenses, budgets and goals. Everything starts at 0.',
                   action: 'Start fresh',
                   run: repo.startFresh,
                   done: 'Ready for your own expenses',

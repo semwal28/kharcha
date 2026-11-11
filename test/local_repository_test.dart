@@ -5,13 +5,24 @@ import 'package:kharcha/data/models.dart';
 DateTime _clock() => DateTime(2026, 11, 9, 19, 30);
 
 void main() {
-  test('first run loads example data and saves it', () async {
+  test('first run starts empty, with every budget at 0', () async {
     final store = MemoryStore();
     final repo = LocalRepository(store: store, clock: _clock);
     final data = await repo.load();
+    expect(repo.hasExampleData, isFalse);
+    expect(data.txns, isEmpty);
+    expect(data.budgets, isEmpty);
+    expect(data.goals, isEmpty);
+    expect(data.profile.monthlyIncomePaise, 0);
+    expect(store.value, isNotNull);
+  });
+
+  test('first run can load example data instead', () async {
+    final repo = LocalRepository(clock: _clock, exampleOnFirstRun: true);
+    final data = await repo.load();
     expect(repo.hasExampleData, isTrue);
     expect(data.txns, isNotEmpty);
-    expect(store.value, isNotNull);
+    expect(data.budgets, isNotEmpty);
   });
 
   test('expenses, custom categories, budgets and income survive a restart', () async {
@@ -38,22 +49,25 @@ void main() {
     expect(data.profile.monthlyIncomePaise, 6500000);
   });
 
-  test('start fresh clears expenses and custom categories', () async {
+  test('start fresh clears expenses, categories and budgets', () async {
     final repo = LocalRepository(clock: _clock);
-    await repo.load();
+    await repo.loadExampleData();
     await repo.addCustomCategory('Pets');
     await repo.startFresh();
     final data = await repo.load();
     expect(data.txns, isEmpty);
     expect(data.categories.any((c) => c.isCustom), isFalse);
-    expect(data.budgets, isNotEmpty); // starter budgets stay
+    expect(data.budgets, isEmpty);
+    expect(data.goals, isEmpty);
+    expect(data.splits, isEmpty);
   });
 
-  test('unreadable saved data falls back to example data', () async {
+  test('unreadable saved data starts again, empty', () async {
     final store = MemoryStore()..value = '{not json';
     final repo = LocalRepository(store: store, clock: _clock);
     final data = await repo.load();
-    expect(repo.hasExampleData, isTrue);
-    expect(data.txns, isNotEmpty);
+    expect(repo.hasExampleData, isFalse);
+    expect(data.txns, isEmpty);
+    expect(data.budgets, isEmpty);
   });
 }

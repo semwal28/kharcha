@@ -42,7 +42,7 @@ Built with Flutter (one codebase for Android, iOS and web) and Supabase (login, 
 - **Light, Dark or Auto theme:** Settings → Appearance. The new theme spreads out in a circle from where you tap, and the choice is remembered.
 - **Motion throughout:** a launch animation, shimmer loading screens, pull-to-refresh, an animated empty state, rolling numbers, rings and bars that draw themselves, and a success burst when you add an expense. All motion turns off when the phone's "reduce motion" setting is on.
 - **Two ways to use it:**
-  - **Without an account:** tap "Use without an account" on the sign-in screen (or build without Supabase keys). Everything is saved on the device. It starts with two months of example data; Settings → Start fresh clears it.
+  - **Without an account:** tap "Use without an account" on the sign-in screen (or build without Supabase keys). Everything is saved on the device. It starts empty, with every budget at 0. Settings → Load example data shows a two-month demo; Start fresh clears it again.
   - **With an account:** sign in with a 6-digit email code, and data syncs to Supabase. Settings has Sign out and Delete account (deletes everything, as Google Play requires).
 
 ## Project layout
@@ -78,7 +78,7 @@ test/                        unit + widget tests
 
 You need the [Flutter SDK](https://docs.flutter.dev/get-started/install) (3.47 or newer).
 
-Phone-only mode (no backend; starts with example data):
+Phone-only mode (no backend; starts empty):
 
 ```bash
 flutter pub get
