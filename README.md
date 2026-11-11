@@ -2,8 +2,8 @@
 
 An expense tracker for Android, iOS and the web. It shows where your money goes and finds specific ways to save, with an AI coach powered by Claude.
 
-- **Try it in your browser:** https://semwal28.github.io/kharcha/
-- **Android app:** download the APK from [Releases](https://github.com/semwal28/kharcha/releases/latest).
+- **Try it in your browser:** https://semwal28.github.io/spendwell/
+- **Android app:** download the APK from [Releases](https://github.com/semwal28/spendwell/releases/latest).
 
 Built with Flutter (one codebase for Android, iOS and web) and Supabase (login, Postgres database, server functions).
 
