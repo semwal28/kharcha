@@ -46,17 +46,9 @@ Without them, each release is signed with a temporary test key, and people have 
 
 1. Raise `version:` in `pubspec.yaml` and `kAppVersion` in `lib/core/brand.dart`.
 2. Write the notes in `docs/releases/vX.Y.Z.md`.
-3. Push a tag:
+3. Push to `main`.
 
-```bash
-git tag vX.Y.Z
-```
-
-```bash
-git push origin vX.Y.Z
-```
-
-The [Release workflow](../.github/workflows/release.yml) runs the tests, builds both APKs and publishes the release.
+The [Release workflow](../.github/workflows/release.yml) sees a version with no release yet, runs the tests, builds both APKs and publishes the release with tag `vX.Y.Z`.
 
 ## 3. Build for Google Play
 

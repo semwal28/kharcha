@@ -1,22 +1,49 @@
 name: Release
 
-# Push a tag like v0.3.0 to build both Android APKs and publish them as a
-# GitHub Release. Notes come from docs/releases/<tag>.md.
+# Publishes a GitHub Release with both Android APKs whenever the version in
+# pubspec.yaml has no release yet. Raise the version, push to main, done.
+# Notes come from docs/releases/v<version>.md.
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+      needed: ${{ steps.v.outputs.needed }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$(sed -n 's/^version: *\([^+ ]*\).*/\1/p' pubspec.yaml)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "$tag is already released."
+          elif [ ! -f "docs/releases/$tag.md" ]; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No docs/releases/$tag.md yet, so $tag is not released."
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
   apk:
+    needs: check
+    if: needs.check.outputs.needed == 'true'
     runs-on: ubuntu-latest
     env:
       SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://hpbqhrfdwawnlleyazvl.supabase.co' }}
       SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_HmnJAMCfPyHJBxQxtRszkw_W_wS3W8n' }}
       AI_ENABLED: ${{ vars.AI_ENABLED || 'false' }}
-      VERSION: ${{ github.ref_name }}
+      VERSION: ${{ needs.check.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -71,6 +98,8 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          name: Spendwell ${{ github.ref_name }}
-          body_path: docs/releases/${{ github.ref_name }}.md
+          tag_name: ${{ needs.check.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Spendwell ${{ needs.check.outputs.tag }}
+          body_path: docs/releases/${{ needs.check.outputs.tag }}.md
           files: dist/*.apk
