@@ -29,7 +29,36 @@ keyAlias=upload
 keyPassword=...
 ```
 
-## 3. Build
+### Use the same key for GitHub Releases
+
+So that each APK on GitHub Releases installs as an update, give the release workflow your key. In the repository, open **Settings → Secrets and variables → Actions → New repository secret** and add:
+
+| Secret | Value |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | the output of `base64 -w0 ~/spendwell-upload.jks` |
+| `ANDROID_KEYSTORE_PASSWORD` | the store password |
+| `ANDROID_KEY_ALIAS` | `upload` |
+| `ANDROID_KEY_PASSWORD` | the key password |
+
+Without them, each release is signed with a temporary test key, and people have to uninstall the old version first.
+
+## GitHub Release (APKs for testers)
+
+1. Raise `version:` in `pubspec.yaml` and `kAppVersion` in `lib/core/brand.dart`.
+2. Write the notes in `docs/releases/vX.Y.Z.md`.
+3. Push a tag:
+
+```bash
+git tag vX.Y.Z
+```
+
+```bash
+git push origin vX.Y.Z
+```
+
+The [Release workflow](../.github/workflows/release.yml) runs the tests, builds both APKs and publishes the release.
+
+## 3. Build for Google Play
 
 ```bash
 flutter build appbundle --release --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
