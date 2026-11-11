@@ -2,7 +2,7 @@
 
 ## Name
 
-Kharcha: Expense Tracker
+Spendwell: Expense Tracker
 
 ## Short description (Play, max 80 characters)
 
@@ -10,16 +10,16 @@ Track spending in seconds. See where money goes and how much you can save.
 
 ## Full description
 
-Kharcha shows where your money goes and tells you, in rupees, how to spend less.
+Spendwell shows where your money goes and tells you exactly how much you could save.
 
 **Add an expense in two taps**
-Type the amount on the keypad and pick a category. Write "petrol" or "Swiggy" in the note and Kharcha picks the category for you. Your usual spends sit in Quick add, so repeats take one tap.
+Type the amount on the keypad and pick a category. Write "petrol" or "Swiggy" in the note and Spendwell picks the category for you. Your usual spends sit in Quick add, so repeats take one tap.
 
 **See your month at a glance**
 How much you've spent, how much budget is left, what you can safely spend today, and where the month will end.
 
 **Find money leaks**
-Kharcha spots habits that cost you, with the saving for each:
+Spendwell spots habits that cost you, with the saving for each:
 • Subscriptions that went up in price
 • Too many video apps at once
 • Late-night food orders and late-night shopping
@@ -29,7 +29,7 @@ Kharcha spots habits that cost you, with the saving for each:
 Get a step-by-step savings plan, or ask questions like "Can I afford a ₹15,000 phone this month?"
 
 **Budgets that keep up**
-Set a limit for each category, or apply suggested budgets in one tap. Kharcha warns you when a category is heading over.
+Set a limit for each category, or apply suggested budgets in one tap. Spendwell warns you when a category is heading over.
 
 **Private by design**
 Use it without an account and everything stays on your phone. With an account, only you can see your data, and you can delete it any time.

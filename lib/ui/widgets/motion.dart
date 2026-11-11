@@ -301,3 +301,110 @@ class GrowBar extends StatelessWidget {
     ),
   );
 }
+
+/// Shrinks a little while pressed, then springs back. Makes taps feel physical.
+class Squish extends StatefulWidget {
+  const Squish({super.key, required this.child, this.scale = .97});
+  final Widget child;
+  final double scale;
+
+  @override
+  State<Squish> createState() => _SquishState();
+}
+
+class _SquishState extends State<Squish> {
+  bool _down = false;
+
+  void _set(bool v) {
+    if (_down != v) setState(() => _down = v);
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+    onPointerDown: (_) => _set(true),
+    onPointerUp: (_) => _set(false),
+    onPointerCancel: (_) => _set(false),
+    child: AnimatedScale(
+      scale: _down && !reduceMotion(context) ? widget.scale : 1,
+      duration: Duration(milliseconds: _down ? 90 : 260),
+      curve: _down ? Curves.easeOut : Curves.elasticOut,
+      child: widget.child,
+    ),
+  );
+}
+
+/// Placeholder blocks with a light sweeping across them, shown while data loads.
+class ShimmerBox extends StatelessWidget {
+  const ShimmerBox({super.key, required this.height, this.radius = 18, this.width});
+  final double height;
+  final double? width;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final k = context.k;
+    final box = Container(
+      height: height,
+      width: width,
+      decoration: BoxDecoration(color: k.surface2, borderRadius: BorderRadius.circular(radius)),
+    );
+    if (reduceMotion(context)) return box;
+    return box.animate(onPlay: (c) => c.repeat()).shimmer(duration: 1300.ms, color: k.surface.withValues(alpha: .9));
+  }
+}
+
+/// Friendly empty state: a wallet that floats while coins drift up out of it.
+class FloatingEmpty extends StatelessWidget {
+  const FloatingEmpty({super.key, required this.title, this.subtitle});
+  final String title;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final k = context.k;
+    final still = reduceMotion(context);
+    Widget wallet = Container(
+      width: 64,
+      height: 64,
+      decoration: BoxDecoration(color: k.accentSoft, shape: BoxShape.circle),
+      child: Icon(Icons.account_balance_wallet_outlined, color: k.accent, size: 30),
+    );
+    if (!still) {
+      wallet = wallet.animate(onPlay: (c) => c.repeat(reverse: true)).moveY(begin: 0, end: -6, duration: 1400.ms, curve: Curves.easeInOut);
+    }
+    Widget coin(double dx, int delayMs) {
+      final dot = Container(
+        width: 10,
+        height: 10,
+        decoration: BoxDecoration(color: k.pop, shape: BoxShape.circle),
+      );
+      if (still) return const SizedBox.shrink();
+      return Positioned(
+        left: 27 + dx,
+        top: 8,
+        child: dot
+            .animate(onPlay: (c) => c.repeat(), delay: delayMs.ms)
+            .moveY(begin: 0, end: -26, duration: 1600.ms, curve: Curves.easeOut)
+            .fadeIn(duration: 300.ms)
+            .then(delay: 900.ms)
+            .fadeOut(duration: 400.ms),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Column(
+        children: [
+          SizedBox(
+            width: 64,
+            height: 78,
+            child: Stack(clipBehavior: Clip.none, alignment: Alignment.bottomCenter, children: [wallet, coin(-12, 0), coin(8, 550), coin(-2, 1100)]),
+          ),
+          const SizedBox(height: 10),
+          Text(title, textAlign: TextAlign.center, style: context.text.titleSmall),
+          if (subtitle != null) ...[const SizedBox(height: 2), Text(subtitle!, textAlign: TextAlign.center, style: context.text.bodySmall)],
+        ],
+      ),
+    );
+  }
+}

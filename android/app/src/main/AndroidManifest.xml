@@ -2,7 +2,7 @@
     <!-- Needed to sign in, sync and use AI in release builds. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="Kharcha"
+        android:label="Spendwell"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

@@ -1,4 +1,4 @@
-# Kharcha
+# Spendwell
 
 An expense tracker for Android and iOS. It shows where your money goes and finds specific ways to save, with an AI coach powered by Claude.
 
@@ -21,8 +21,9 @@ Built with Flutter (one codebase for Android, iOS and web) and Supabase (login, 
   - Leaks found include price rises, double charges, too many video apps, late-night orders, café runs and late fees.
 - **AI savings plan and Ask AI chat:** Claude reads your month and answers in a few short lines.
 - **Budgets:** per-category limits, "On track / Likely over / Over" status, and one-tap suggested budgets.
-- **Edit and delete:** tap any expense to edit it, change its category, add it again or delete it.
-- **Motion throughout:** rolling numbers, rings and bars that draw themselves, and a success burst when you add an expense. All motion turns off when the phone's "reduce motion" setting is on.
+- **Edit and delete:** tap any expense to edit it, change its category, add it again or delete it. Swipe left to delete, with Undo.
+- **Light, Dark or Auto theme:** Settings → Appearance. The new theme spreads out in a circle from where you tap, and the choice is remembered.
+- **Motion throughout:** a launch animation, shimmer loading screens, pull-to-refresh, an animated empty state, rolling numbers, rings and bars that draw themselves, and a success burst when you add an expense. All motion turns off when the phone's "reduce motion" setting is on.
 - **Two ways to run:**
   - **On this phone (no account):** used when the app is built without Supabase keys. Everything is saved on the phone. It starts with two months of example data; Settings → Start fresh clears it.
   - **With an account:** sign in with an email code, and data syncs to Supabase. Settings has Sign out and Delete account (deletes everything, as Google Play requires).

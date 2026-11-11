@@ -17,7 +17,7 @@ Future<LocalRepository> _start(WidgetTester tester) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [repositoryProvider.overrideWithValue(repo), clockProvider.overrideWithValue(_clock)],
-      child: const KharchaApp(home: AppShell()),
+      child: const SpendwellApp(home: AppShell()),
     ),
   );
   await tester.pump();
@@ -145,5 +145,47 @@ void main() {
     final t = data.txns.where((t) => t.note == 'Team lunch').toList();
     expect(t, hasLength(1));
     expect(t.single.amountPaise, 45000);
+  });
+
+  testWidgets('theme switch: Dark, then Light, then Auto', (tester) async {
+    await _start(tester);
+    await tester.tap(find.byTooltip('Settings'));
+    await _settle(tester, 1);
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(app.themeMode, ThemeMode.system);
+
+    for (final (label, mode, brightness) in [('Dark', ThemeMode.dark, Brightness.dark), ('Light', ThemeMode.light, Brightness.light)]) {
+      await tester.tap(find.text(label));
+      await _settle(tester, 1);
+      expect(tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode, mode);
+      expect(Theme.of(tester.element(find.text('Settings'))).brightness, brightness);
+    }
+    await tester.tap(find.text('Auto'));
+    await _settle(tester, 1);
+    expect(tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode, ThemeMode.system);
+  });
+
+  testWidgets('swipe an expense away, then undo', (tester) async {
+    final repo = await _start(tester);
+    await tester.tap(find.text('Add'));
+    await _settle(tester, 1);
+    await tester.enterText(find.byType(TextField).first, 'Movie night');
+    await _type(tester, '600');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Add ₹600 · Entertainment'));
+    await _settle(tester);
+
+    final row = find.descendant(of: find.byType(TxTile), matching: find.text('Movie night'));
+    await tester.dragUntilVisible(row, find.byKey(const ValueKey('home-list')), const Offset(0, -300));
+    await tester.ensureVisible(row);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.drag(row, const Offset(-500, 0));
+    await _settle(tester, 1);
+    expect((await repo.load()).txns.any((t) => t.note == 'Movie night'), isFalse);
+
+    await tester.tap(find.text('Undo'));
+    await _settle(tester, 1);
+    expect((await repo.load()).txns.where((t) => t.note == 'Movie night'), hasLength(1));
+    await _settle(tester, 3);
   });
 }

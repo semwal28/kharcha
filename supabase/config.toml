@@ -1,4 +1,4 @@
-# Supabase CLI settings for Kharcha. Values not listed here use the CLI defaults.
+# Supabase CLI settings for Spendwell. Values not listed here use the CLI defaults.
 project_id = "kharcha"
 
 [functions.ai-coach]

@@ -17,13 +17,13 @@ Needs: a Supabase account and a Claude API key.
 Needs: Java (comes with Android Studio). Keep the key and passwords safe: losing them means you can't update the app.
 
 ```bash
-keytool -genkey -v -keystore ~/kharcha-upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+keytool -genkey -v -keystore ~/spendwell-upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
 ```
 
 Then create `android/key.properties` (git ignores it):
 
 ```
-storeFile=/home/you/kharcha-upload.jks
+storeFile=/home/you/spendwell-upload.jks
 storePassword=...
 keyAlias=upload
 keyPassword=...
@@ -43,7 +43,7 @@ Before each release, raise `version:` in `pubspec.yaml` (for example `0.1.0+1` â
 
 Needs: a Google Play developer account (one-time US$25).
 
-- [ ] Create the app. The package name is `app.kharcha` and can't change later.
+- [ ] Create the app. The package name is `app.spendwell` and can't change later.
 - [ ] Store listing: copy from `docs/STORE_LISTING.md`, add screenshots and the icon (`docs/icon.png`).
 - [ ] Privacy policy: finish `docs/PRIVACY.md` and host it at a public URL (for example GitHub Pages).
 - [ ] Data safety form: answers are in `docs/STORE_LISTING.md`.
@@ -54,6 +54,6 @@ Needs: a Google Play developer account (one-time US$25).
 
 Needs: a Mac with Xcode and an Apple Developer account (US$99/year).
 
-- [ ] Open `ios/Runner.xcworkspace`, set the team and bundle id (`app.kharcha`).
+- [ ] Open `ios/Runner.xcworkspace`, set the team and bundle id (`app.spendwell`).
 - [ ] `flutter build ipa --release --dart-define=...`, then upload with Xcode or Transporter.
 - [ ] App Store Connect: listing, privacy "nutrition label" (same answers as Play's data safety form), screenshots.

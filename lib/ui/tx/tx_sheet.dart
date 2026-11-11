@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -75,7 +76,47 @@ class TxTile extends ConsumerWidget {
             ),
           );
     }
-    return row;
+    row = Squish(child: row);
+    return Dismissible(
+      key: ValueKey('swipe-${txn.id}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 18),
+        decoration: BoxDecoration(color: k.badSoft, borderRadius: BorderRadius.circular(12)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Delete',
+              style: TextStyle(color: k.bad, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.delete_outline_rounded, color: k.bad),
+          ],
+        ),
+      ),
+      onDismissed: (_) async {
+        HapticFeedback.mediumImpact();
+        final messenger = ScaffoldMessenger.of(context);
+        final notifier = ref.read(appDataProvider.notifier);
+        try {
+          await notifier.deleteTxn(txn.id);
+        } catch (e) {
+          messenger.showSnackBar(SnackBar(content: Text(e.toString())));
+          return;
+        }
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text('Deleted ${Money.inr(txn.amountPaise)} · ${cat.name}'),
+              action: SnackBarAction(label: 'Undo', textColor: k.pop, onPressed: () => notifier.restoreTxn(txn)),
+            ),
+          );
+      },
+      child: row,
+    );
   }
 }
 

@@ -1,11 +1,11 @@
-# Kharcha privacy policy
+# Spendwell privacy policy
 
 **Draft. Fill in the [NEEDS: …] items and have it reviewed before you publish.**
 
 Effective date: [NEEDS: date]
 Who we are: [NEEDS: your name or company], [NEEDS: city, India]. Contact: [NEEDS: support email].
 
-Kharcha helps you track what you spend and suggests ways to save. This policy explains what the app collects, why, and the choices you have.
+Spendwell helps you track what you spend and suggests ways to save. This policy explains what the app collects, why, and the choices you have.
 
 ## What we collect
 
@@ -21,7 +21,7 @@ We do **not** read your SMS, contacts, bank accounts, location or photos. We do 
 
 ## Using the app without an account
 
-If you use Kharcha without signing in, everything stays on your phone. Nothing is sent to us. Uninstalling the app deletes it.
+If you use Spendwell without signing in, everything stays on your phone. Nothing is sent to us. Uninstalling the app deletes it.
 
 ## Where your data is stored
 
@@ -45,7 +45,7 @@ These rights apply under India's Digital Personal Data Protection Act, 2023 and 
 
 ## Children
 
-Kharcha is not meant for children under 18. We do not knowingly collect data from them.
+Spendwell is not meant for children under 18. We do not knowingly collect data from them.
 
 ## Changes
 

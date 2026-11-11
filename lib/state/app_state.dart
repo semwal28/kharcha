@@ -94,6 +94,10 @@ class AppDataNotifier extends AsyncNotifier<AppData> {
     );
   }
 
+  /// Puts back an expense that was just deleted (the Undo button).
+  Future<Txn> restoreTxn(Txn t) =>
+      addTxn(NewTxn(amountPaise: t.amountPaise, categoryId: t.categoryId, spentAt: t.spentAt, note: t.note ?? t.merchant, pay: t.pay));
+
   Future<void> changeCategory(String txnId, String categoryId) => _optimistic(
     _data.copyWith(txns: [for (final x in _data.txns) x.id == txnId ? x.copyWith(categoryId: categoryId) : x]),
     () => _repo.updateTxnCategory(txnId, categoryId),

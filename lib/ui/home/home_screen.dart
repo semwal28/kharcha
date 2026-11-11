@@ -44,7 +44,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       SectionHeader('Where it went', trailing: Text('excl. rent', style: context.text.bodySmall)),
       KCard(
         child: top5.isEmpty
-            ? Text('Nothing spent yet this month.', style: context.text.bodyMedium)
+            ? Text('Your top categories will show up here.', style: context.text.bodyMedium)
             : Column(
                 children: [
                   CategoryRows(stats: top5),
@@ -60,23 +60,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       KCard(
         padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
         child: list.isEmpty
-            ? Padding(
-                padding: const EdgeInsets.all(8),
-                child: Text('Nothing yet. Tap + to add.', style: context.text.bodyMedium),
-              )
+            ? const FloatingEmpty(title: 'No expenses yet', subtitle: 'Tap + to add your first one.')
             : _RecentList(txns: list, now: s.now, onAddAgain: widget.onAdd),
       ),
     ];
-    return ListView(
-      key: const ValueKey('home-list'),
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
-      children: [
-        for (final (i, b) in blocks.indexed)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-            child: Enter(index: i, child: b),
-          ),
-      ],
+    return RefreshIndicator(
+      color: context.k.accent,
+      onRefresh: () => ref.read(appDataProvider.notifier).refresh(),
+      child: ListView(
+        key: const ValueKey('home-list'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+        children: [
+          for (final (i, b) in blocks.indexed)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Enter(index: i, child: b),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -317,39 +319,41 @@ class _QuickChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final k = context.k;
-    return Material(
-      color: k.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: dashed ? k.pop : k.line),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 14, 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              iconOverride ?? icon,
-              const SizedBox(width: 8),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 130),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                    ),
-                    Text(subtitle, style: context.text.bodySmall?.copyWith(fontFeatures: kTabular)),
-                  ],
+    return Squish(
+      child: Material(
+        color: k.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: dashed ? k.pop : k.line),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 14, 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                iconOverride ?? icon,
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 130),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                      Text(subtitle, style: context.text.bodySmall?.copyWith(fontFeatures: kTabular)),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -366,34 +370,37 @@ class _TipCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final k = context.k;
-    return GlowBorderCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const AiBadge(label: 'Smart tip'),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Save ${leak.saveText}',
-                  textAlign: TextAlign.right,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontWeight: FontWeight.w700, color: k.good, fontFeatures: kTabular),
+    return Squish(
+      scale: .985,
+      child: GlowBorderCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const AiBadge(label: 'Smart tip'),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Save ${leak.saveText}',
+                    textAlign: TextAlign.right,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontWeight: FontWeight.w700, color: k.good, fontFeatures: kTabular),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(leak.title, style: context.text.titleMedium),
-          const SizedBox(height: 2),
-          Text(leak.detail, style: context.text.bodyMedium),
-          const SizedBox(height: 8),
-          ActionLine(leak.action),
-          const SizedBox(height: 6),
-          LinkButton('See all $total tips', onTap: onSeeAll),
-        ],
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(leak.title, style: context.text.titleMedium),
+            const SizedBox(height: 2),
+            Text(leak.detail, style: context.text.bodyMedium),
+            const SizedBox(height: 8),
+            ActionLine(leak.action),
+            const SizedBox(height: 6),
+            LinkButton('See all $total tips', onTap: onSeeAll),
+          ],
+        ),
       ),
     );
   }

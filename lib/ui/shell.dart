@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/brand.dart';
 import '../core/money.dart';
 import '../data/local_repository.dart';
 import '../state/app_state.dart';
@@ -12,6 +13,7 @@ import 'budgets/budgets_screen.dart';
 import 'home/home_screen.dart';
 import 'insights/insights_screen.dart';
 import 'theme.dart';
+import 'theme_controller.dart';
 import 'tx/tx_sheet.dart';
 import 'widgets/common.dart';
 import 'widgets/motion.dart';
@@ -79,7 +81,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                   ],
                 ),
                 AsyncError(:final error) => _ErrorView(message: error.toString(), onRetry: () => ref.read(appDataProvider.notifier).refresh()),
-                _ => const Center(child: CircularProgressIndicator()),
+                _ => const _LoadingSkeleton(),
               },
             ),
           ],
@@ -103,16 +105,7 @@ class _TopBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final k = context.k;
     final now = ref.watch(clockProvider)();
-    Widget mark = Container(
-      width: 34,
-      height: 34,
-      decoration: BoxDecoration(color: k.accent, borderRadius: BorderRadius.circular(10)),
-      alignment: Alignment.center,
-      child: Text(
-        '₹',
-        style: TextStyle(fontFamily: kDisplay, fontWeight: FontWeight.w700, fontSize: 19, color: k.accentInk),
-      ),
-    );
+    Widget mark = const BrandMark(size: 34);
     if (!reduceMotion(context)) {
       mark = mark
           .animate()
@@ -129,7 +122,7 @@ class _TopBar extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Kharcha',
+                kAppName,
                 style: TextStyle(fontFamily: kDisplay, fontWeight: FontWeight.w700, fontSize: 20, letterSpacing: -.4, color: k.ink, height: 1.1),
               ),
               Text('${monthNames[now.month - 1]} ${now.year}', style: context.text.bodySmall),
@@ -424,6 +417,10 @@ class _SettingsSheetState extends ConsumerState<_SettingsSheet> {
               ),
             ],
           ),
+          const SizedBox(height: 18),
+          Text('Appearance', style: context.text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          const _ThemePicker(),
           const SizedBox(height: 20),
           if (repo is LocalRepository) ...[
             if (repo.hasExampleData)
@@ -478,7 +475,7 @@ class _SettingsSheetState extends ConsumerState<_SettingsSheet> {
             ),
           ],
           const SizedBox(height: 12),
-          Text('Kharcha 0.1.0', textAlign: TextAlign.center, style: context.text.bodySmall),
+          Text('$kAppName $kAppVersion', textAlign: TextAlign.center, style: context.text.bodySmall),
         ],
       ),
     );
@@ -572,4 +569,107 @@ class _SettingsButton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Auto / Light / Dark. The new theme spreads from the tapped button.
+class _ThemePicker extends StatelessWidget {
+  const _ThemePicker();
+
+  static const _options = [
+    (ThemeMode.system, Icons.brightness_auto_rounded, 'Auto'),
+    (ThemeMode.light, Icons.light_mode_rounded, 'Light'),
+    (ThemeMode.dark, Icons.dark_mode_rounded, 'Dark'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final k = context.k;
+    final controller = ThemeScope.of(context);
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(color: k.surface2, borderRadius: BorderRadius.circular(14)),
+      child: Row(
+        children: [
+          for (final (mode, icon, label) in _options)
+            Expanded(
+              child: Semantics(
+                button: true,
+                selected: controller.value == mode,
+                label: '$label theme',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapUp: (d) {
+                    HapticFeedback.selectionClick();
+                    controller.change(mode, from: d.globalPosition);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: controller.value == mode ? k.surface : Colors.transparent,
+                      borderRadius: BorderRadius.circular(11),
+                      boxShadow: controller.value == mode
+                          ? [BoxShadow(color: Colors.black.withValues(alpha: .1), blurRadius: 4, offset: const Offset(0, 1))]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        AnimatedRotation(
+                          turns: controller.value == mode ? 0 : -.25,
+                          duration: const Duration(milliseconds: 450),
+                          curve: Curves.easeOutBack,
+                          child: AnimatedScale(
+                            scale: controller.value == mode ? 1.15 : 1,
+                            duration: const Duration(milliseconds: 450),
+                            curve: Curves.elasticOut,
+                            child: Icon(icon, size: 18, color: controller.value == mode ? k.accent : k.muted),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          label,
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: controller.value == mode ? k.ink : k.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shimmering outline of the Home screen while data loads.
+class _LoadingSkeleton extends StatelessWidget {
+  const _LoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    physics: const NeverScrollableScrollPhysics(),
+    padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+    children: const [
+      ShimmerBox(height: 200, radius: 20),
+      SizedBox(height: 20),
+      ShimmerBox(height: 18, width: 110, radius: 6),
+      SizedBox(height: 12),
+      Row(
+        children: [
+          Expanded(child: ShimmerBox(height: 54, radius: 14)),
+          SizedBox(width: 8),
+          Expanded(child: ShimmerBox(height: 54, radius: 14)),
+          SizedBox(width: 8),
+          Expanded(child: ShimmerBox(height: 54, radius: 14)),
+        ],
+      ),
+      SizedBox(height: 16),
+      ShimmerBox(height: 130),
+      SizedBox(height: 16),
+      ShimmerBox(height: 220),
+    ],
+  );
 }

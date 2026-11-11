@@ -1,4 +1,4 @@
-// Kharcha AI coach: a Supabase Edge Function that calls Claude.
+// Spendwell AI coach: a Supabase Edge Function that calls Claude.
 //
 // POST /functions/v1/ai-coach   (Authorization: Bearer <user access token>)
 //   { "mode": "plan", "summary": "<month snapshot>" }
@@ -33,19 +33,19 @@ function json(status: number, body: unknown): Response {
   });
 }
 
-const PLAN_RULES = `You are the savings coach inside Kharcha, an Indian expense tracker app.
+const PLAN_RULES = `You are the savings coach inside Spendwell, an expense tracker app.
 Using ONLY the user's data below, write a short savings plan.
 - 4 to 5 actions, easiest first.
-- Each action cites real merchants, counts or rupee amounts from the data.
+- Each action cites real merchants, counts or amounts from the data.
 - Keep it very short: title at most 6 words, why at most 12 words, action at most 8 words.
-- monthly_saving is a realistic whole number of rupees per month.
+- monthly_saving is a realistic whole number in the data's currency, per month.
 - No generic advice such as "track your spending".`;
 
-const CHAT_RULES = `You are the money coach inside Kharcha, an Indian expense tracker app.
+const CHAT_RULES = `You are the money coach inside Spendwell, an expense tracker app.
 Answer the user's question using ONLY their data below.
-- Use ₹ with Indian digit grouping (₹1,25,000).
+- Use the currency shown in the data; for INR use Indian digit grouping (₹1,25,000).
 - Be warm and very brief: at most 3 short sentences or 3 bullets, under 60 words.
-- When you suggest a saving, name the merchant or habit and give a ₹ amount per month.
+- When you suggest a saving, name the merchant or habit and give an amount per month.
 - If the data cannot answer the question, say so plainly. No headings, no tables.`;
 
 const PLAN_SCHEMA = {

@@ -1,11 +1,11 @@
 {
-    "name": "Kharcha",
-    "short_name": "Kharcha",
+    "name": "Spendwell",
+    "short_name": "Spendwell",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0D5C70",
     "theme_color": "#0D5C70",
-    "description": "Kharcha: AI expense tracker",
+    "description": "Spendwell: know where your money goes",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

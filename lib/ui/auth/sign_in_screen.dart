@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/brand.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/motion.dart';
@@ -79,16 +80,7 @@ class _SignInScreenState extends State<SignInScreen> {
   Widget build(BuildContext context) {
     final k = context.k;
     final still = reduceMotion(context);
-    Widget logo = Container(
-      width: 64,
-      height: 64,
-      decoration: BoxDecoration(color: k.accent, borderRadius: BorderRadius.circular(18)),
-      alignment: Alignment.center,
-      child: Text(
-        '₹',
-        style: TextStyle(fontFamily: kDisplay, fontWeight: FontWeight.w700, fontSize: 36, color: k.accentInk),
-      ),
-    );
+    Widget logo = const BrandMark(size: 64);
     if (!still) {
       logo = logo
           .animate()
@@ -108,7 +100,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 children: [
                   logo,
                   const SizedBox(height: 20),
-                  Enter(index: 1, child: Text('Know where your money goes.', style: context.text.displayMedium?.copyWith(fontSize: 30))),
+                  Enter(index: 1, child: Text(kTagline, style: context.text.displayMedium?.copyWith(fontSize: 30))),
                   const SizedBox(height: 8),
                   Enter(
                     index: 2,

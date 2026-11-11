@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sets up the Kharcha backend on your Supabase project in one go:
+# Sets up the Spendwell backend on your Supabase project in one go:
 # database tables + security rules, the Claude key, and both server functions.
 #
 # Before you run it:

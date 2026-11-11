@@ -8,7 +8,7 @@ plugins {
 }
 
 // Release signing: create android/key.properties (never commit it) with
-//   storeFile=/absolute/path/to/kharcha-upload.jks
+//   storeFile=/absolute/path/to/spendwell-upload.jks
 //   storePassword=...
 //   keyAlias=upload
 //   keyPassword=...
@@ -32,7 +32,7 @@ android {
 
     defaultConfig {
         // The id on Google Play. It can't change after the first upload.
-        applicationId = "app.kharcha"
+        applicationId = "app.spendwell"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

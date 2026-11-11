@@ -1,4 +1,4 @@
-// Kharcha: delete the signed-in user's account and all their data.
+// Spendwell: delete the signed-in user's account and all their data.
 //
 // POST /functions/v1/delete-account   (Authorization: Bearer <user access token>)
 //   -> { "ok": true }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Kharcha colour tokens, matching the approved prototype.
+/// Spendwell colour tokens, matching the approved prototype.
 @immutable
 class KColors extends ThemeExtension<KColors> {
   const KColors({
@@ -100,7 +100,38 @@ class KColors extends ThemeExtension<KColors> {
   KColors copyWith() => this;
 
   @override
-  KColors lerp(ThemeExtension<KColors>? other, double t) => t < .5 || other is! KColors ? this : other;
+  KColors lerp(ThemeExtension<KColors>? other, double t) {
+    if (other is! KColors) return this;
+    final o = other;
+    return KColors(
+      bg: Color.lerp(bg, o.bg, t)!,
+      surface: Color.lerp(surface, o.surface, t)!,
+      surface2: Color.lerp(surface2, o.surface2, t)!,
+      ink: Color.lerp(ink, o.ink, t)!,
+      ink2: Color.lerp(ink2, o.ink2, t)!,
+      muted: Color.lerp(muted, o.muted, t)!,
+      line: Color.lerp(line, o.line, t)!,
+      accent: Color.lerp(accent, o.accent, t)!,
+      accentInk: Color.lerp(accentInk, o.accentInk, t)!,
+      accentSoft: Color.lerp(accentSoft, o.accentSoft, t)!,
+      bar: Color.lerp(bar, o.bar, t)!,
+      barStrong: Color.lerp(barStrong, o.barStrong, t)!,
+      hero: Color.lerp(hero, o.hero, t)!,
+      hero2: Color.lerp(hero2, o.hero2, t)!,
+      heroInk: Color.lerp(heroInk, o.heroInk, t)!,
+      aurora1: Color.lerp(aurora1, o.aurora1, t)!,
+      aurora2: Color.lerp(aurora2, o.aurora2, t)!,
+      pop: Color.lerp(pop, o.pop, t)!,
+      popInk: Color.lerp(popInk, o.popInk, t)!,
+      popSoft: Color.lerp(popSoft, o.popSoft, t)!,
+      good: Color.lerp(good, o.good, t)!,
+      goodSoft: Color.lerp(goodSoft, o.goodSoft, t)!,
+      warn: Color.lerp(warn, o.warn, t)!,
+      warnSoft: Color.lerp(warnSoft, o.warnSoft, t)!,
+      bad: Color.lerp(bad, o.bad, t)!,
+      badSoft: Color.lerp(badSoft, o.badSoft, t)!,
+    );
+  }
 }
 
 const kBody = 'Figtree';

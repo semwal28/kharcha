@@ -7,8 +7,11 @@ import 'data/supabase_repository.dart';
 import 'services/ai_coach.dart';
 import 'state/app_state.dart';
 import 'ui/auth/sign_in_screen.dart';
+import 'core/brand.dart';
 import 'ui/shell.dart';
 import 'ui/theme.dart';
+import 'ui/theme_controller.dart';
+import 'ui/widgets/intro.dart';
 
 /// Pass these at build time to connect the live backend:
 ///   flutter run --dart-define=SUPABASE_URL=https://xyz.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
@@ -22,39 +25,62 @@ const aiEnabled = bool.fromEnvironment('AI_ENABLED', defaultValue: true);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final theme = await ThemeController.load();
   if (supabaseUrl.isEmpty || supabaseKey.isEmpty) {
     runApp(
       ProviderScope(
         overrides: [repositoryProvider.overrideWithValue(LocalRepository(store: PrefsStore()))],
-        child: const KharchaApp(home: AppShell()),
+        child: SpendwellApp(home: const AppShell(), theme: theme),
       ),
     );
     return;
   }
   await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseKey);
-  runApp(const AuthGate());
+  runApp(AuthGate(theme: theme));
 }
 
-class KharchaApp extends StatelessWidget {
-  const KharchaApp({super.key, required this.home});
+class SpendwellApp extends StatelessWidget {
+  const SpendwellApp({super.key, required this.home, this.theme});
   final Widget home;
 
+  /// Light / Dark / Auto. Tests may leave it out.
+  final ThemeController? theme;
+  static final _fallbackTheme = ThemeController();
+
+  static final _light = buildTheme(Brightness.light);
+  static final _dark = buildTheme(Brightness.dark);
+
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'Kharcha',
-    debugShowCheckedModeBanner: false,
-    theme: buildTheme(Brightness.light),
-    darkTheme: buildTheme(Brightness.dark),
-    themeMode: ThemeMode.system,
-    home: home,
-  );
+  Widget build(BuildContext context) {
+    final controller = theme ?? _fallbackTheme;
+    return ThemeScope(
+      controller: controller,
+      child: ListenableBuilder(
+        listenable: controller,
+        builder: (context, _) => MaterialApp(
+          title: kAppName,
+          debugShowCheckedModeBanner: false,
+          theme: _light,
+          darkTheme: _dark,
+          themeMode: controller.value,
+          themeAnimationDuration: controller.revealing ? Duration.zero : const Duration(milliseconds: 400),
+          themeAnimationCurve: Curves.easeInOutCubic,
+          builder: (context, child) => IntroOverlay(
+            child: ThemeReveal(key: controller.revealKey, child: child!),
+          ),
+          home: home,
+        ),
+      ),
+    );
+  }
 }
 
 /// Shows sign-in until there is a session, then the app with a fresh state
 /// for that user. The ProviderScope sits above MaterialApp so sheets and
 /// dialogs (which open on the app's navigator) can read the same state.
 class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
+  const AuthGate({super.key, required this.theme});
+  final ThemeController theme;
 
   @override
   Widget build(BuildContext context) {
@@ -63,14 +89,19 @@ class AuthGate extends StatelessWidget {
       stream: db.auth.onAuthStateChange,
       builder: (context, _) {
         final session = db.auth.currentSession;
-        if (session == null) return KharchaApp(home: SignInScreen(db: db));
+        if (session == null) {
+          return SpendwellApp(
+            home: SignInScreen(db: db),
+            theme: theme,
+          );
+        }
         return ProviderScope(
           key: ValueKey(session.user.id),
           overrides: [
             repositoryProvider.overrideWithValue(SupabaseRepository(db)),
             aiCoachProvider.overrideWithValue(aiEnabled ? SupabaseAiCoach(db) : OfflineAiCoach()),
           ],
-          child: const KharchaApp(home: AppShell()),
+          child: SpendwellApp(home: const AppShell(), theme: theme),
         );
       },
     );
