@@ -46,6 +46,12 @@ android {
     }
 
     signingConfigs {
+        // Sign with both the old (v1) and new (v2) schemes so emulators and
+        // older installers accept the APK.
+        getByName("debug") {
+            enableV1Signing = true
+            enableV2Signing = true
+        }
         create("release") {
             if (keystorePropertiesFile.exists()) {
                 storeFile = file(keystoreProperties.getProperty("storeFile"))
@@ -53,6 +59,16 @@ android {
                 keyAlias = keystoreProperties.getProperty("keyAlias")
                 keyPassword = keystoreProperties.getProperty("keyPassword")
             }
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+    }
+
+    // Compress native libraries and unpack them at install time. Works on
+    // more devices and emulators (e.g. BlueStacks) and makes the APK smaller.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
         }
     }
 
