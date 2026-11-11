@@ -42,10 +42,14 @@ class SupabaseRepository implements ExpenseRepository {
       final txns = [for (final r in results[1] as List) _txn(r as Map<String, dynamic>)];
       final budgets = {for (final r in results[2] as List) (r as Map)['category_id'] as String: (r['limit_paise'] as num).toInt()};
       final p = results[3] as Map<String, dynamic>?;
+      final extras = await _loadExtras();
       return AppData(
         categories: cats,
         txns: txns,
         budgets: budgets,
+        goals: extras?.goals ?? const [],
+        splits: extras?.splits ?? const [],
+        extrasAvailable: extras != null,
         profile: Profile(
           displayName: p?['display_name'] as String?,
           monthlyIncomePaise: (p?['monthly_income_paise'] as num?)?.toInt() ?? 0,
@@ -57,6 +61,39 @@ class SupabaseRepository implements ExpenseRepository {
       throw RepoException('Could not load your data (${e.message}).');
     }
   }
+
+  /// Goals and splits live in tables added by the second database update.
+  /// If it hasn't been run yet, the rest of the app still works.
+  Future<({List<Goal> goals, List<Split> splits})?> _loadExtras() async {
+    try {
+      final r = await Future.wait([
+        _db.from('goals').select('id,name,target_paise,saved_paise').order('created_at'),
+        _db.from('splits').select('id,person,amount_paise,note,created_at,settled_at').order('created_at', ascending: false).limit(500),
+      ]);
+      return (
+        goals: [for (final g in r[0] as List) _goal(g as Map<String, dynamic>)],
+        splits: [for (final s in r[1] as List) _split(s as Map<String, dynamic>)],
+      );
+    } on PostgrestException {
+      return null;
+    }
+  }
+
+  static Goal _goal(Map<String, dynamic> r) => Goal(
+    id: r['id'] as String,
+    name: r['name'] as String,
+    targetPaise: (r['target_paise'] as num).toInt(),
+    savedPaise: (r['saved_paise'] as num?)?.toInt() ?? 0,
+  );
+
+  static Split _split(Map<String, dynamic> r) => Split(
+    id: r['id'] as String,
+    person: r['person'] as String,
+    amountPaise: (r['amount_paise'] as num).toInt(),
+    note: r['note'] as String?,
+    createdAt: DateTime.parse(r['created_at'] as String).toLocal(),
+    settled: r['settled_at'] != null,
+  );
 
   static Category _category(Map<String, dynamic> r) => Category(
     id: r['id'] as String,
@@ -98,6 +135,7 @@ class SupabaseRepository implements ExpenseRepository {
           'merchant': t.note,
           'pay_method': t.pay.label,
           'spent_at': t.spentAt.toUtc().toIso8601String(),
+          'is_recurring': t.isRecurring,
         })
         .select('id,amount_paise,category_id,note,merchant,pay_method,spent_at,is_recurring')
         .single();
@@ -115,12 +153,57 @@ class SupabaseRepository implements ExpenseRepository {
           'merchant': t.merchant,
           'pay_method': t.pay.label,
           'spent_at': t.spentAt.toUtc().toIso8601String(),
+          'is_recurring': t.isRecurring,
         })
         .eq('id', t.id)
         .select('id,amount_paise,category_id,note,merchant,pay_method,spent_at,is_recurring')
         .single();
     return _txn(row);
   });
+
+  @override
+  Future<Goal> addGoal(String name, int targetPaise) => _guard('create the goal', () async {
+    final row = await _db
+        .from('goals')
+        .insert({'user_id': _uid, 'name': name.trim(), 'target_paise': targetPaise})
+        .select('id,name,target_paise,saved_paise')
+        .single();
+    return _goal(row);
+  });
+
+  @override
+  Future<Goal> updateGoal(Goal goal) => _guard('save the goal', () async {
+    final row = await _db
+        .from('goals')
+        .update({'name': goal.name, 'target_paise': goal.targetPaise, 'saved_paise': goal.savedPaise})
+        .eq('id', goal.id)
+        .select('id,name,target_paise,saved_paise')
+        .single();
+    return _goal(row);
+  });
+
+  @override
+  Future<void> deleteGoal(String id) => _guard('delete the goal', () => _db.from('goals').delete().eq('id', id));
+
+  @override
+  Future<List<Split>> addSplits(List<({String person, int amountPaise})> shares, {String? note}) => _guard('save the split', () async {
+    if (shares.isEmpty) return <Split>[];
+    final uid = _uid;
+    final rows = await _db
+        .from('splits')
+        .insert([
+          for (final s in shares) {'user_id': uid, 'person': s.person, 'amount_paise': s.amountPaise, 'note': note},
+        ])
+        .select('id,person,amount_paise,note,created_at,settled_at');
+    return [for (final r in rows) _split(r)];
+  });
+
+  @override
+  Future<void> settleSplit(String id, bool settled) =>
+      _guard('update the split', () => _db.from('splits').update({'settled_at': settled ? DateTime.now().toUtc().toIso8601String() : null}).eq('id', id));
+
+  @override
+  Future<void> deleteSplit(String id) => _guard('delete the split', () => _db.from('splits').delete().eq('id', id));
 
   @override
   Future<void> deleteAccount() async {

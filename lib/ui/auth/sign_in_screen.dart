@@ -10,8 +10,11 @@ import '../widgets/motion.dart';
 
 /// Email sign-in with a 6-digit code. No passwords to remember.
 class SignInScreen extends StatefulWidget {
-  const SignInScreen({super.key, required this.db});
+  const SignInScreen({super.key, required this.db, this.onUseWithoutAccount});
   final SupabaseClient db;
+
+  /// Lets people try the app with data saved only on this device.
+  final VoidCallback? onUseWithoutAccount;
 
   @override
   State<SignInScreen> createState() => _SignInScreenState();
@@ -162,6 +165,35 @@ class _SignInScreenState extends State<SignInScreen> {
                         }),
                       ),
                     ),
+                  if (!_codeSent && widget.onUseWithoutAccount != null) ...[
+                    const SizedBox(height: 22),
+                    Row(
+                      children: [
+                        Expanded(child: Divider(color: k.line)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Text('or', style: context.text.bodySmall),
+                        ),
+                        Expanded(child: Divider(color: k.line)),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: OutlinedButton(
+                        onPressed: widget.onUseWithoutAccount,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: k.ink,
+                          side: BorderSide(color: k.line),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        child: const Text('Use without an account', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text('Everything stays on this device. You can sign in later.', textAlign: TextAlign.center, style: context.text.bodySmall),
+                  ],
                 ],
               ),
             ),

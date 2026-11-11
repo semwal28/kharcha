@@ -1,5 +1,6 @@
 package app.kharcha.kharcha
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity()
+// FlutterFragmentActivity is required for the fingerprint/face app lock (local_auth).
+class MainActivity : FlutterFragmentActivity()

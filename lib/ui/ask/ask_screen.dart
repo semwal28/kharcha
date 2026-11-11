@@ -10,9 +10,9 @@ import '../../state/app_state.dart';
 import '../theme.dart';
 
 const _suggestions = <(String, String)>[
-  ('Save ₹5,000?', 'Where can I save ₹5,000 this month?'),
+  ('Where can I save?', 'Where can I save money this month?'),
   ('Food delivery spend?', 'How much did I spend on food delivery this month?'),
-  ('Afford a ₹15k phone?', 'Can I afford a ₹15,000 phone this month?'),
+  ('Afford a new phone?', 'Can I afford a new phone this month?'),
   ('Why more this month?', 'Why is this month more expensive than last month?'),
 ];
 
@@ -48,7 +48,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     final cat = guessCategory(q, data) ?? (ql.contains('food') ? data.byKey('delivery') : null);
     if (cat != null) {
       final c = s.cats[cat.id]!;
-      return '${cat.name}: ${Money.inr(c.spent)} this month (${c.count} spends). Last month by now: ${Money.inr(c.prevSame)}.';
+      return '${cat.name}: ${Money.fmt(c.spent)} this month (${c.count} spends). Last month by now: ${Money.fmt(c.prevSame)}.';
     }
     return 'I can answer questions about a category or shop for now, like “Swiggy spend?” or “Groceries?”. ${OfflineAiCoach.message}';
   }

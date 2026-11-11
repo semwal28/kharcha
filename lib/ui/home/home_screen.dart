@@ -139,7 +139,7 @@ class _HeroCard extends StatelessWidget {
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerLeft,
                         child: Odometer(
-                          text: Money.inr(s.spent),
+                          text: Money.fmt(s.spent),
                           style: TextStyle(fontFamily: kDisplay, fontSize: 40, fontWeight: FontWeight.w700, letterSpacing: -1.2, color: k.heroInk),
                         ),
                       ),
@@ -150,7 +150,7 @@ class _HeroCard extends StatelessWidget {
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
-                              s.spent == 0 ? 'Nothing spent yet this month' : '${Money.inr(diff.abs())} ${diff > 0 ? 'more' : 'less'} than last month',
+                              s.spent == 0 ? 'Nothing spent yet this month' : '${Money.fmt(diff.abs())} ${diff > 0 ? 'more' : 'less'} than last month',
                               style: ink.copyWith(fontSize: 13, color: k.heroInk.withValues(alpha: .92)),
                             ),
                           ),
@@ -197,7 +197,7 @@ class _HeroCard extends StatelessWidget {
               alignment: WrapAlignment.spaceBetween,
               spacing: 12,
               children: [
-                Text('Budget ${Money.inr(s.totalBudget)}', style: ink.copyWith(fontSize: 12, color: k.heroInk.withValues(alpha: .85))),
+                Text('Budget ${Money.fmt(s.totalBudget)}', style: ink.copyWith(fontSize: 12, color: k.heroInk.withValues(alpha: .85))),
                 Text('Yellow line = today', style: ink.copyWith(fontSize: 12, color: k.heroInk.withValues(alpha: .85))),
               ],
             ),
@@ -243,7 +243,7 @@ class _HeroStat extends StatelessWidget {
           const SizedBox(height: 2),
           CountUp(
             value: paise,
-            format: Money.inr,
+            format: Money.fmt,
             delay: const Duration(milliseconds: 300),
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: k.heroInk),
           ),
@@ -290,7 +290,7 @@ class _QuickAdd extends StatelessWidget {
         _QuickChip(
           icon: CatIcon(data.cat(e.value.$1.categoryId).isCustom ? 'tag' : data.cat(e.value.$1.categoryId).icon, size: 30),
           title: e.key,
-          subtitle: Money.inr(e.value.$1.amountPaise),
+          subtitle: Money.fmt(e.value.$1.amountPaise),
           onTap: () => onAdd(AddPrefill(amountPaise: e.value.$1.amountPaise, categoryId: e.value.$1.categoryId, note: e.key, pay: e.value.$1.pay)),
         ),
     ];
@@ -489,7 +489,7 @@ class CategoryRows extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            Money.inr(c.spent),
+                            Money.fmt(c.spent),
                             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, fontFeatures: kTabular),
                           ),
                         ],
@@ -503,9 +503,9 @@ class CategoryRows extends StatelessWidget {
                       ),
                       Row(
                         children: [
-                          Expanded(child: Text('Last month ${Money.inr(c.prevSame)}', style: context.text.bodySmall)),
+                          Expanded(child: Text('Last month ${Money.fmt(c.prevSame)}', style: context.text.bodySmall)),
                           Text(
-                            c.spent == c.prevSame ? 'same' : '${c.spent > c.prevSame ? '+' : '−'}${Money.inr((c.spent - c.prevSame).abs())}',
+                            c.spent == c.prevSame ? 'same' : '${c.spent > c.prevSame ? '+' : '−'}${Money.fmt((c.spent - c.prevSame).abs())}',
                             style: context.text.bodySmall?.copyWith(fontFeatures: kTabular),
                           ),
                         ],
@@ -578,7 +578,7 @@ class _RecentList extends StatelessWidget {
                   child: Text(dayLabel(day, now), style: context.text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
                 ),
                 Text(
-                  Money.inr(total),
+                  Money.fmt(total),
                   style: context.text.bodySmall?.copyWith(fontWeight: FontWeight.w600, fontFeatures: kTabular),
                 ),
               ],

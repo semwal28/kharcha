@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../core/money.dart';
 import '../../domain/analysis.dart';
 import '../theme.dart';
 import 'motion.dart';
@@ -241,7 +242,7 @@ class _AuroraBackgroundState extends State<AuroraBackground> with SingleTickerPr
                         child: Transform.rotate(
                           angle: math.sin(t * 3 + i) * .14,
                           child: Text(
-                            '₹',
+                            Money.symbol.characters.first,
                             style: TextStyle(fontFamily: kDisplay, fontWeight: FontWeight.w700, fontSize: size, color: k.heroInk.withValues(alpha: .1)),
                           ),
                         ),

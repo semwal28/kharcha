@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../core/money.dart';
 import '../theme.dart';
 import 'motion.dart';
 
@@ -150,7 +151,7 @@ class _BurstPainter extends CustomPainter {
     final origin = Offset(s.width / 2, s.height / 2 - 40);
     final rupee = TextPainter(
       text: TextSpan(
-        text: '₹',
+        text: Money.symbol.characters.first,
         style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: coinInk),
       ),
       textDirection: TextDirection.ltr,

@@ -4,6 +4,10 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/brand.dart';
+import '../services/export.dart';
+import '../services/home_widget_sync.dart';
+import 'app_lock.dart';
+import 'currency_controller.dart';
 import '../core/money.dart';
 import '../data/local_repository.dart';
 import '../state/app_state.dart';
@@ -15,6 +19,8 @@ import 'insights/insights_screen.dart';
 import 'theme.dart';
 import 'theme_controller.dart';
 import 'tx/tx_sheet.dart';
+import '../domain/recurring.dart';
+import 'widgets/budget_alert.dart';
 import 'widgets/common.dart';
 import 'widgets/motion.dart';
 import 'widgets/success_burst.dart';
@@ -40,12 +46,21 @@ class _AppShellState extends ConsumerState<AppShell> {
     });
   }
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) HomeWidgetSync.push(ref.read(summaryProvider));
+    });
+  }
+
   Future<void> _add([AddPrefill? prefill]) async {
+    final before = ref.read(summaryProvider);
     final result = await openAddSheet(context, prefill: prefill);
     if (result == null || !mounted) return;
     await showSuccessBurst(
       context,
-      amount: Money.inr(result.amountPaise),
+      amount: Money.fmt(result.amountPaise),
       subtitle: '${result.categoryName}${result.newCategory ? ' (new category)' : ''} · ${result.when}',
     );
     if (!mounted) return;
@@ -54,15 +69,33 @@ class _AppShellState extends ConsumerState<AppShell> {
       _tab = 0;
       _visits[0]++;
     });
-    toast(context, 'Added ${Money.inr(result.amountPaise)} · ${result.categoryName}');
+    toast(context, 'Added ${Money.fmt(result.amountPaise)} · ${result.categoryName}');
     Future.delayed(const Duration(milliseconds: 2600), () {
       if (mounted) ref.read(justAddedProvider.notifier).mark(null);
     });
+    final stat = ref.read(summaryProvider)?.cats[result.categoryId];
+    if (stat != null) {
+      final alert = budgetAlertFor(
+        category: stat.category,
+        beforePaise: before?.cats[result.categoryId]?.spent ?? 0,
+        afterPaise: stat.spent,
+        budgetPaise: stat.budget,
+      );
+      if (alert != null) showBudgetAlert(context, alert);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(appDataProvider);
+    ref.listen(summaryProvider, (_, next) => HomeWidgetSync.push(next));
+    ref.listen(appDataProvider, (prev, next) {
+      if (prev?.value != null || next.value == null) return;
+      final added = ref.read(appDataProvider.notifier).autoAdded;
+      if (added.isNotEmpty) {
+        toast(context, 'Added this month\'s ${added.length == 1 ? 'repeat expense' : '${added.length} repeat expenses'}: ${added.take(3).join(', ')}');
+      }
+    });
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -152,7 +185,7 @@ class _TabBar extends StatelessWidget {
     const items = [
       (Icons.home_outlined, Icons.home_rounded, 'Home'),
       (Icons.bar_chart_outlined, Icons.bar_chart_rounded, 'Insights'),
-      (Icons.donut_large_outlined, Icons.donut_large_rounded, 'Budgets'),
+      (Icons.flag_outlined, Icons.flag_rounded, 'Plan'),
       (Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'Ask AI'),
     ];
     return Container(
@@ -373,7 +406,9 @@ class _SettingsSheetState extends ConsumerState<_SettingsSheet> {
   Widget build(BuildContext context) {
     final repo = ref.watch(repositoryProvider);
     final profile = ref.watch(appDataProvider).value?.profile;
-    return Padding(
+    final exitGuest = ref.watch(exitGuestProvider);
+    final currency = CurrencyScope.of(context).value;
+    return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.viewInsetsOf(context).bottom + 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -395,7 +430,7 @@ class _SettingsSheetState extends ConsumerState<_SettingsSheet> {
                   controller: _income,
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(9)],
-                  decoration: const InputDecoration(prefixText: '₹ ', hintText: 'e.g. 65000'),
+                  decoration: InputDecoration(prefixText: '${Money.symbol} ', hintText: 'Monthly amount'),
                 ),
               ),
               const SizedBox(width: 8),
@@ -421,7 +456,45 @@ class _SettingsSheetState extends ConsumerState<_SettingsSheet> {
           Text('Appearance', style: context.text.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
           const _ThemePicker(),
+          const SizedBox(height: 14),
+          _SettingsButton(
+            icon: Icons.currency_exchange_rounded,
+            label: 'Currency',
+            caption: '${currency.name} (${currency.symbol.trim()})',
+            onTap: _pickCurrency,
+          ),
+          const SizedBox(height: 8),
+          const _AppLockRow(),
+          _SettingsButton(
+            icon: Icons.table_view_outlined,
+            label: 'Export to CSV',
+            caption: 'Every expense, for Excel or Google Sheets.',
+            onTap: () => _export(pdf: false),
+          ),
+          const SizedBox(height: 8),
+          _SettingsButton(
+            icon: Icons.picture_as_pdf_outlined,
+            label: 'Export PDF report',
+            caption: 'This month: totals, categories, tips, expenses.',
+            onTap: () => _export(pdf: true),
+          ),
+          if (HomeWidgetSync.supported) ...[
+            const SizedBox(height: 8),
+            const _InfoRow(icon: Icons.widgets_outlined, text: 'Add the Spendwell widget: long-press your home screen, tap Widgets, then Spendwell.'),
+          ],
           const SizedBox(height: 20),
+          if (exitGuest != null) ...[
+            _SettingsButton(
+              icon: Icons.cloud_upload_outlined,
+              label: 'Sign in to back up and sync',
+              caption: 'Use the app on any device. Data on this device stays here.',
+              onTap: () {
+                Navigator.of(context).pop();
+                exitGuest();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
           if (repo is LocalRepository) ...[
             if (repo.hasExampleData)
               _SettingsButton(
@@ -479,6 +552,39 @@ class _SettingsSheetState extends ConsumerState<_SettingsSheet> {
         ],
       ),
     );
+  }
+
+  Future<void> _pickCurrency() async {
+    final ctl = CurrencyScope.of(context);
+    final picked = await showModalBottomSheet<Currency>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _CurrencySheet(selected: ctl.value),
+    );
+    if (picked == null || picked.code == ctl.value.code || !mounted) return;
+    final repo = ref.read(repositoryProvider);
+    final nav = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    await ctl.change(picked);
+    if (repo is LocalRepository && repo.hasExampleData) await repo.loadExampleData();
+    ref.invalidate(summaryProvider);
+    await ref.read(appDataProvider.notifier).refresh();
+    if (!mounted) return;
+    nav.pop();
+    messenger.showSnackBar(SnackBar(content: Text('Amounts now shown in ${picked.name}')));
+  }
+
+  Future<void> _export({required bool pdf}) async {
+    final data = ref.read(appDataProvider).value;
+    final s = ref.read(summaryProvider);
+    if (data == null || s == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      pdf ? await Exporter.sharePdf(data, s) : await Exporter.shareCsv(data);
+    } catch (e) {
+      messenger.showSnackBar(const SnackBar(content: Text('Couldn\'t share the file on this device.')));
+    }
   }
 
   Future<void> _confirm({
@@ -671,5 +777,112 @@ class _LoadingSkeleton extends StatelessWidget {
       SizedBox(height: 16),
       ShimmerBox(height: 220),
     ],
+  );
+}
+
+class _CurrencySheet extends StatelessWidget {
+  const _CurrencySheet({required this.selected});
+  final Currency selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final k = context.k;
+    return ListView(
+      shrinkWrap: true,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+      children: [
+        Text('Currency', style: context.text.titleLarge),
+        const SizedBox(height: 4),
+        Text('Changes how amounts are shown. Amounts you already added are not converted.', style: context.text.bodySmall),
+        const SizedBox(height: 10),
+        for (final (i, c) in kCurrencies.indexed)
+          Enter(
+            index: i,
+            child: Squish(
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 6),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                leading: CircleAvatar(
+                  backgroundColor: c.code == selected.code ? k.accent : k.surface2,
+                  foregroundColor: c.code == selected.code ? k.accentInk : k.ink,
+                  child: Text(c.symbol.trim().length > 2 ? c.code.substring(0, 2) : c.symbol.trim(), style: const TextStyle(fontWeight: FontWeight.w700)),
+                ),
+                title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(c.code),
+                trailing: c.code == selected.code ? Icon(Icons.check_circle_rounded, color: k.accent) : null,
+                onTap: () => Navigator.pop(context, c),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Fingerprint / face lock switch. Hidden where the device can't do it.
+class _AppLockRow extends StatefulWidget {
+  const _AppLockRow();
+  @override
+  State<_AppLockRow> createState() => _AppLockRowState();
+}
+
+class _AppLockRowState extends State<_AppLockRow> {
+  late final Future<bool> _available = AppLock.available();
+  bool _on = AppLock.enabled;
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<bool>(
+    future: _available,
+    builder: (context, snap) {
+      if (snap.data != true) return const SizedBox.shrink();
+      final k = context.k;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Material(
+          color: k.bg,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: k.line),
+          ),
+          child: SwitchListTile(
+            value: _on,
+            activeThumbColor: k.accent,
+            secondary: Icon(Icons.fingerprint_rounded, color: k.ink),
+            title: const Text('App lock', style: TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text('Ask for fingerprint, face or PIN to open', style: context.text.bodySmall),
+            onChanged: (v) async {
+              final ok = await AppLock.setEnabled(v);
+              if (!mounted) return;
+              if (ok) {
+                setState(() => _on = v);
+              } else if (context.mounted) {
+                toast(context, 'App lock was not turned on.');
+              }
+            },
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(color: context.k.accentSoft, borderRadius: BorderRadius.circular(14)),
+    child: Row(
+      children: [
+        Icon(icon, color: context.k.accent, size: 20),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(text, style: context.text.bodySmall?.copyWith(color: context.k.ink2)),
+        ),
+      ],
+    ),
   );
 }

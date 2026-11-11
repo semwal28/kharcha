@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/money.dart';
 import 'models.dart';
 import 'repository.dart';
 import 'sample_data.dart';
@@ -43,6 +44,8 @@ class LocalRepository implements ExpenseRepository {
   List<Txn> _txns = [];
   Map<String, int> _budgets = {};
   Profile _profile = const Profile();
+  List<Goal> _goals = [];
+  List<Split> _splits = [];
   bool _example = false;
   bool _loaded = false;
 
@@ -52,14 +55,17 @@ class LocalRepository implements ExpenseRepository {
   @override
   bool get hasExampleData => _example;
 
-  Map<String, int> get _starterBudgets => {for (final e in demoBudgetsRupees.entries) e.key: e.value * 100};
+  Map<String, int> get _starterBudgets => {for (final e in demoBudgetsRupees.entries) e.key: (e.value * Money.currency.scale).round() * 100};
 
   /// Two months of example spending (the state a new user sees first).
   Future<void> loadExampleData() async {
     _cats = List.of(builtinCategories);
-    _txns = generateSampleTxns(_clock());
+    _txns = generateSampleTxns(_clock(), scale: Money.currency.scale);
     _budgets = _starterBudgets;
-    _profile = const Profile(monthlyIncomePaise: 6500000, displayName: 'Demo');
+    _profile = Profile(monthlyIncomePaise: Money.scaled(6500000), displayName: 'Demo');
+    final now = _clock();
+    _goals = [Goal(id: 'g-demo', name: 'Goa trip', targetPaise: Money.scaled(2000000), savedPaise: Money.scaled(850000))];
+    _splits = [Split(id: 's-demo-1', person: 'Rahul', amountPaise: Money.scaled(45000), note: 'Pizza night', createdAt: now.subtract(const Duration(days: 2)))];
     _example = true;
     await _save();
   }
@@ -70,6 +76,8 @@ class LocalRepository implements ExpenseRepository {
     _txns = [];
     _budgets = _starterBudgets;
     _profile = const Profile();
+    _goals = [];
+    _splits = [];
     _example = false;
     await _save();
   }
@@ -94,6 +102,20 @@ class LocalRepository implements ExpenseRepository {
             if (t.merchant != null) 'm': t.merchant,
             'p': t.pay.label,
             if (t.isRecurring) 'r': true,
+          },
+      ],
+      'goals': [
+        for (final g in _goals) {'id': g.id, 'name': g.name, 'target': g.targetPaise, 'saved': g.savedPaise},
+      ],
+      'splits': [
+        for (final s in _splits)
+          {
+            'id': s.id,
+            'person': s.person,
+            'a': s.amountPaise,
+            't': s.createdAt.toIso8601String(),
+            if (s.note != null) 'n': s.note,
+            if (s.settled) 'done': true,
           },
       ],
     }),
@@ -126,6 +148,21 @@ class LocalRepository implements ExpenseRepository {
             isRecurring: t['r'] as bool? ?? false,
           ),
       ]..sort((a, b) => b.spentAt.compareTo(a.spentAt));
+      _goals = [
+        for (final g in (j['goals'] as List? ?? const []))
+          Goal(id: g['id'] as String, name: g['name'] as String, targetPaise: (g['target'] as num).toInt(), savedPaise: (g['saved'] as num).toInt()),
+      ];
+      _splits = [
+        for (final s in (j['splits'] as List? ?? const []))
+          Split(
+            id: s['id'] as String,
+            person: s['person'] as String,
+            amountPaise: (s['a'] as num).toInt(),
+            createdAt: DateTime.parse(s['t'] as String),
+            note: s['n'] as String?,
+            settled: s['done'] as bool? ?? false,
+          ),
+      ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     } catch (_) {
       // Unreadable data (e.g. an older format): start again with examples
       // rather than crash.
@@ -138,13 +175,29 @@ class LocalRepository implements ExpenseRepository {
   @override
   Future<AppData> load() async {
     await _ensureLoaded();
-    return AppData(categories: List.of(_cats), txns: List.of(_txns), budgets: Map.of(_budgets), profile: _profile);
+    return AppData(
+      categories: List.of(_cats),
+      txns: List.of(_txns),
+      budgets: Map.of(_budgets),
+      profile: _profile,
+      goals: List.of(_goals),
+      splits: List.of(_splits),
+    );
   }
 
   @override
   Future<Txn> addTxn(NewTxn t) async {
     await _ensureLoaded();
-    final txn = Txn(id: _newId(), amountPaise: t.amountPaise, categoryId: t.categoryId, spentAt: t.spentAt, note: t.note, merchant: t.note, pay: t.pay);
+    final txn = Txn(
+      id: _newId(),
+      amountPaise: t.amountPaise,
+      categoryId: t.categoryId,
+      spentAt: t.spentAt,
+      note: t.note,
+      merchant: t.note,
+      pay: t.pay,
+      isRecurring: t.isRecurring,
+    );
     _txns = [txn, ..._txns]..sort((a, b) => b.spentAt.compareTo(a.spentAt));
     await _save();
     return txn;
@@ -203,6 +256,57 @@ class LocalRepository implements ExpenseRepository {
   Future<void> setIncome(int paise) async {
     await _ensureLoaded();
     _profile = _profile.copyWith(monthlyIncomePaise: paise);
+    await _save();
+  }
+
+  @override
+  Future<Goal> addGoal(String name, int targetPaise) async {
+    await _ensureLoaded();
+    final g = Goal(id: 'g${_clock().microsecondsSinceEpoch}', name: name.trim(), targetPaise: targetPaise);
+    _goals = [..._goals, g];
+    await _save();
+    return g;
+  }
+
+  @override
+  Future<Goal> updateGoal(Goal goal) async {
+    await _ensureLoaded();
+    _goals = [for (final g in _goals) g.id == goal.id ? goal : g];
+    await _save();
+    return goal;
+  }
+
+  @override
+  Future<void> deleteGoal(String id) async {
+    await _ensureLoaded();
+    _goals = _goals.where((g) => g.id != id).toList();
+    await _save();
+  }
+
+  @override
+  Future<List<Split>> addSplits(List<({String person, int amountPaise})> shares, {String? note}) async {
+    await _ensureLoaded();
+    final now = _clock();
+    final added = [
+      for (final (i, s) in shares.indexed)
+        Split(id: 'p${now.microsecondsSinceEpoch}-$i', person: s.person, amountPaise: s.amountPaise, note: note, createdAt: now),
+    ];
+    _splits = [...added, ..._splits];
+    await _save();
+    return added;
+  }
+
+  @override
+  Future<void> settleSplit(String id, bool settled) async {
+    await _ensureLoaded();
+    _splits = [for (final s in _splits) s.id == id ? s.copyWith(settled: settled) : s];
+    await _save();
+  }
+
+  @override
+  Future<void> deleteSplit(String id) async {
+    await _ensureLoaded();
+    _splits = _splits.where((s) => s.id != id).toList();
     await _save();
   }
 

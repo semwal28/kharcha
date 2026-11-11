@@ -45,13 +45,14 @@ PayMethod _defaultPay(String cat, int rupees, String merchant) {
 
 /// Two months of realistic example spending (last month + this month so far),
 /// stable for a given month so screenshots and tests are repeatable.
-List<Txn> generateSampleTxns(DateTime now) {
+/// [scale] sizes amounts to the chosen currency (1 = Indian rupees).
+List<Txn> generateSampleTxns(DateTime now, {double scale = 1}) {
   final out = <Txn>[];
   var n = 0;
   void add(DateTime d, int h, int mi, num rupees, String merchant, String cat, {bool rec = false, String? note, PayMethod? pay}) {
     final at = DateTime(d.year, d.month, d.day, h, mi);
     if (at.isAfter(now)) return;
-    final r = rupees.round();
+    final r = math.max(1, (rupees * scale).round());
     out.add(
       Txn(
         id: 's${n++}',

@@ -26,6 +26,15 @@ abstract class ExpenseRepository {
   Future<void> setBudgets(Map<String, int> limitsPaise);
   Future<void> setIncome(int paise);
 
+  Future<Goal> addGoal(String name, int targetPaise);
+  Future<Goal> updateGoal(Goal goal);
+  Future<void> deleteGoal(String id);
+
+  /// Records what each person owes you for a bill you paid.
+  Future<List<Split>> addSplits(List<({String person, int amountPaise})> shares, {String? note});
+  Future<void> settleSplit(String id, bool settled);
+  Future<void> deleteSplit(String id);
+
   /// Permanently deletes the account (or, on a phone-only setup, all data).
   Future<void> deleteAccount();
 

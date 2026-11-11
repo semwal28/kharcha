@@ -53,7 +53,7 @@ class TxTile extends ConsumerWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              Money.inr(txn.amountPaise),
+              Money.fmt(txn.amountPaise),
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: k.ink, fontFeatures: kTabular),
             ),
           ],
@@ -110,7 +110,7 @@ class TxTile extends ConsumerWidget {
           ..hideCurrentSnackBar()
           ..showSnackBar(
             SnackBar(
-              content: Text('Deleted ${Money.inr(txn.amountPaise)} · ${cat.name}'),
+              content: Text('Deleted ${Money.fmt(txn.amountPaise)} · ${cat.name}'),
               action: SnackBarAction(label: 'Undo', textColor: k.pop, onPressed: () => notifier.restoreTxn(txn)),
             ),
           );
@@ -155,7 +155,7 @@ class _TxSheet extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(Money.inr(current.amountPaise), style: context.text.displayMedium?.copyWith(fontSize: 28, fontFeatures: kTabular)),
+                    Text(Money.fmt(current.amountPaise), style: context.text.displayMedium?.copyWith(fontSize: 28, fontFeatures: kTabular)),
                     Text(
                       '${fmtDay(current.spentAt)} · ${hhmm(current.spentAt)} · ${current.pay.label}${current.isRecurring ? ' · Monthly' : ''}',
                       style: context.text.bodySmall,
@@ -193,7 +193,7 @@ class _TxSheet extends ConsumerWidget {
                     final messenger = ScaffoldMessenger.of(context);
                     Navigator.pop(context);
                     final result = await openEditSheet(navContext, current);
-                    if (result != null) messenger.showSnackBar(SnackBar(content: Text('Saved ${Money.inr(result.amountPaise)} · ${result.categoryName}')));
+                    if (result != null) messenger.showSnackBar(SnackBar(content: Text('Saved ${Money.fmt(result.amountPaise)} · ${result.categoryName}')));
                   },
                   icon: const Icon(Icons.edit_outlined, size: 18),
                   label: const Text('Edit'),

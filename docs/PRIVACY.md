@@ -16,8 +16,16 @@ Spendwell helps you track what you spend and suggests ways to save. This policy 
 | Categories and budgets you create | When you create them | Same as above |
 | Monthly income (optional) | If you enter it | To show how much you have left |
 | AI requests | When you tap "Build my plan" or ask a question | To count your daily AI limit |
+| Savings goals (name, target, amount saved) | When you create them | To show your progress |
+| Bill splits (a friend's first name, amount, note) | When you split a bill | To show who owes you. Your friends are not contacted. |
 
-We do **not** read your SMS, contacts, bank accounts, location or photos. We do not show ads, and we do not sell or rent your data.
+We do **not** read your SMS, contacts, bank accounts or location. A bank SMS is used only if you copy and paste it into the app yourself. We do not show ads, and we do not sell or rent your data.
+
+## Camera, photos and fingerprint
+
+- **Receipt scan:** if you scan a receipt, the photo is read on your phone to find the total, shop and date. The photo is not uploaded or stored.
+- **App lock:** if you turn it on, your phone checks your fingerprint, face or PIN. The app never sees or stores them.
+- **Exports and reports:** CSV, PDF and report pictures are made on your phone and shared only where you choose.
 
 ## Using the app without an account
 
@@ -25,7 +33,7 @@ If you use Spendwell without signing in, everything stays on your phone. Nothing
 
 ## Where your data is stored
 
-Account data is stored with Supabase, our database provider, in [NEEDS: the region you choose when creating the Supabase project, e.g. Mumbai (ap-south-1)]. Only you can read your data: every table is locked so a signed-in user can see only their own rows.
+Account data is stored with Supabase, our database provider, in Singapore (ap-southeast-1). Only you can read your data: every table is locked so a signed-in user can see only their own rows.
 
 ## AI features
 
@@ -33,7 +41,7 @@ When you ask for a savings plan or ask a question, the app sends a summary of yo
 
 ## How long we keep data
 
-We keep your data while your account exists. When you delete your account, your profile, expenses, categories, budgets and AI usage records are deleted from our database straight away. Backups held by our database provider are removed on their normal schedule: [NEEDS: confirm Supabase backup retention for your plan].
+We keep your data while your account exists. When you delete your account, your profile, expenses, categories, budgets, savings goals, bill splits and AI usage records are deleted from our database straight away. Backups held by our database provider are removed on their normal schedule: [NEEDS: confirm Supabase backup retention for your plan].
 
 ## Your choices and rights
 

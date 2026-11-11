@@ -8,6 +8,7 @@ import '../../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/motion.dart';
+import 'plan_sections.dart';
 
 class BudgetsScreen extends ConsumerWidget {
   const BudgetsScreen({super.key});
@@ -15,12 +16,16 @@ class BudgetsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(summaryProvider)!;
+    final data = ref.watch(appDataProvider).requireValue;
     final k = context.k;
     final left = s.totalBudget - s.spent;
     final rows = s.cats.values.where((c) => c.category.key != 'fees' || c.spent > 0).toList()
       ..sort((a, b) => a.category.sortOrder.compareTo(b.category.sortOrder));
 
     final blocks = <Widget>[
+      if (data.extrasAvailable) ...[const GoalsSection(), const OwedSection()] else const ExtrasMissingCard(),
+      const RepeatsSection(),
+      const SectionHeader('Budgets'),
       KCard(
         child: Row(
           children: [
@@ -50,7 +55,7 @@ class BudgetsScreen extends ConsumerWidget {
                     'Budget',
                     CountUp(
                       value: s.totalBudget.toDouble(),
-                      format: Money.inr,
+                      format: Money.fmt,
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
@@ -58,7 +63,7 @@ class BudgetsScreen extends ConsumerWidget {
                     'Spent',
                     CountUp(
                       value: s.spent.toDouble(),
-                      format: Money.inr,
+                      format: Money.fmt,
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
@@ -66,7 +71,7 @@ class BudgetsScreen extends ConsumerWidget {
                     'Left',
                     CountUp(
                       value: left.toDouble(),
-                      format: Money.inr,
+                      format: Money.fmt,
                       style: TextStyle(fontWeight: FontWeight.w700, color: left >= 0 ? k.good : k.bad),
                     ),
                   ),
@@ -129,10 +134,11 @@ class BudgetsScreen extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
       children: [
         for (final (i, b) in blocks.indexed)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-            child: Enter(index: i, child: b),
-          ),
+          if (b is! SizedBox)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Enter(index: i, child: b),
+            ),
       ],
     );
   }
@@ -166,7 +172,7 @@ class _BudgetRow extends ConsumerWidget {
     final (Pill pill, Color color) = c.budget == 0
         ? (const Pill(PillKind.info, 'No budget'), k.accent)
         : c.overBudget
-        ? (Pill(PillKind.bad, 'Over by ${Money.inr(c.spent - c.budget)}'), k.bad)
+        ? (Pill(PillKind.bad, 'Over by ${Money.fmt(c.spent - c.budget)}'), k.bad)
         : c.likelyOver
         ? (const Pill(PillKind.warn, 'Likely over'), k.warn)
         : (const Pill(PillKind.good, 'On track'), k.good);
@@ -194,7 +200,7 @@ class _BudgetRow extends ConsumerWidget {
           children: [
             Expanded(
               child: Text(
-                '${Money.inr(c.spent)} of ${c.budget > 0 ? Money.inr(c.budget) : '—'}',
+                '${Money.fmt(c.spent)} of ${c.budget > 0 ? Money.fmt(c.budget) : '—'}',
                 style: context.text.bodySmall?.copyWith(fontFeatures: kTabular),
               ),
             ),
@@ -216,7 +222,7 @@ class _BudgetRow extends ConsumerWidget {
           autofocus: true,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(8)],
-          decoration: const InputDecoration(prefixText: '₹ ', hintText: 'Monthly limit'),
+          decoration: InputDecoration(prefixText: '${Money.symbol} ', hintText: 'Monthly limit'),
           onSubmitted: (v) => Navigator.pop(ctx, int.tryParse(v) ?? 0),
         ),
         actions: [

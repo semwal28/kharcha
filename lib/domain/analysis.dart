@@ -25,7 +25,7 @@ class Leak {
   final int monthlyPaise;
   final int oneTimePaise;
 
-  String get saveText => monthlyPaise > 0 ? '${Money.inr(monthlyPaise)}/mo' : '${Money.inr(oneTimePaise)} once';
+  String get saveText => monthlyPaise > 0 ? '${Money.fmt(monthlyPaise)}/mo' : '${Money.fmt(oneTimePaise)} once';
 }
 
 class CatStat {
@@ -219,7 +219,7 @@ List<Leak> findLeaks(AppData data, List<Txn> cur, List<Txn> prev) {
               id: 'dup-${b.id}',
               kind: LeakKind.alert,
               title: 'Double charge at ${a.titleOr('a shop')}',
-              detail: '${Money.inr(a.amountPaise)} twice, $gap min apart · ${fmtDay(b.spentAt)}',
+              detail: '${Money.fmt(a.amountPaise)} twice, $gap min apart · ${fmtDay(b.spentAt)}',
               action: 'Ask for a refund',
               oneTimePaise: a.amountPaise,
             ),
@@ -244,7 +244,7 @@ List<Leak> findLeaks(AppData data, List<Txn> cur, List<Txn> prev) {
           id: 'hike-$mer',
           kind: LeakKind.leak,
           title: '$mer price went up',
-          detail: '${Money.inr(p)} → ${Money.inr(c)} a month',
+          detail: '${Money.fmt(p)} → ${Money.fmt(c)} a month',
           action: 'Ask for the old rate or pay yearly',
           monthlyPaise: c - p,
         ),
@@ -266,7 +266,7 @@ List<Leak> findLeaks(AppData data, List<Txn> cur, List<Txn> prev) {
         id: 'stream',
         kind: LeakKind.leak,
         title: '${vids.length} video apps at once',
-        detail: '${Money.inr(total)} a month in total',
+        detail: '${Money.fmt(total)} a month in total',
         action: 'Keep ${top.$1}, pause the rest',
         monthlyPaise: total - top.$2,
       ),
@@ -284,9 +284,9 @@ List<Leak> findLeaks(AppData data, List<Txn> cur, List<Txn> prev) {
         id: 'late-food',
         kind: LeakKind.habit,
         title: 'Late-night food orders',
-        detail: '${lateFood.length} after 10 PM last month · ${Money.inr(_sum(lateFood))}',
+        detail: '${lateFood.length} after 10 PM last month · ${Money.fmt(_sum(lateFood))}',
         action: 'Eat at home on $cut of those nights',
-        monthlyPaise: math.max(0, (cut * (avg - 9000)).round()),
+        monthlyPaise: math.max(0, (cut * (avg - Money.scaled(9000))).round()),
       ),
     );
   }
@@ -294,13 +294,13 @@ List<Leak> findLeaks(AppData data, List<Txn> cur, List<Txn> prev) {
   // Café runs.
   final cafe = prev.where((t) => key(t) == 'dining').toList();
   final cafeSum = _sum(cafe);
-  if (cafeSum >= 150000) {
+  if (cafeSum >= Money.scaled(150000)) {
     leaks.add(
       Leak(
         id: 'cafe',
         kind: LeakKind.habit,
         title: 'Café runs',
-        detail: '${cafe.length} visits last month · ${Money.inr(cafeSum)}',
+        detail: '${cafe.length} visits last month · ${Money.fmt(cafeSum)}',
         action: 'Make coffee at home 2 days a week',
         monthlyPaise: (cafeSum * 0.35).round(),
       ),
@@ -310,13 +310,13 @@ List<Leak> findLeaks(AppData data, List<Txn> cur, List<Txn> prev) {
   // Late-night shopping.
   final lateShop = prev.where((t) => key(t) == 'shopping' && t.spentAt.hour >= 21).toList();
   final lateShopSum = _sum(lateShop);
-  if (lateShopSum >= 150000) {
+  if (lateShopSum >= Money.scaled(150000)) {
     leaks.add(
       Leak(
         id: 'late-shop',
         kind: LeakKind.habit,
         title: 'Late-night shopping',
-        detail: '${lateShop.length} orders after 9 PM · ${Money.inr(lateShopSum)}',
+        detail: '${lateShop.length} orders after 9 PM · ${Money.fmt(lateShopSum)}',
         action: 'Wait 24 hours before you buy',
         monthlyPaise: (lateShopSum * 0.4).round(),
       ),
@@ -331,7 +331,7 @@ List<Leak> findLeaks(AppData data, List<Txn> cur, List<Txn> prev) {
         id: 'fees',
         kind: LeakKind.alert,
         title: 'Late fee paid',
-        detail: '${Money.inr(_sum(fees))} in late fees',
+        detail: '${Money.fmt(_sum(fees))} in late fees',
         action: 'Turn on auto-pay',
         oneTimePaise: _sum(fees),
       ),
@@ -351,7 +351,7 @@ Map<String, int> suggestBudgets(MonthSummary s) {
       if (c.category.key != 'fees')
         c.category.id: c.category.isFixed
             ? round100(math.max(c.prev, c.recExpected))
-            : (c.prev == 0 && c.category.isCustom ? 0 : math.max(50000, round100(c.prev * 0.9))),
+            : (c.prev == 0 && c.category.isCustom ? 0 : math.max(Money.scaled(50000), round100(c.prev * 0.9))),
   };
 }
 
@@ -359,20 +359,22 @@ Map<String, int> suggestBudgets(MonthSummary s) {
 /// never stored.
 String aiSummary(MonthSummary s, AppData data, {int maxRows = 220}) {
   final b = StringBuffer()
-    ..writeln('Today: ${s.now.toIso8601String().substring(0, 10)}. Monthly take-home income: ${s.income > 0 ? Money.inr(s.income) : 'not set'}. Currency: INR.')
     ..writeln(
-      'This month (${s.monthName}, day ${s.day} of ${s.daysInMonth}): spent ${Money.inr(s.spent)}; same date last month ${Money.inr(s.prevSameTotal)}; projected month end ${Money.inr(s.projected)}; total budget ${Money.inr(s.totalBudget)}. Last month total: ${Money.inr(s.prevTotal)}.',
+      'Today: ${s.now.toIso8601String().substring(0, 10)}. Monthly take-home income: ${s.income > 0 ? Money.fmt(s.income) : 'not set'}. Currency: ${Money.currency.code}.',
+    )
+    ..writeln(
+      'This month (${s.monthName}, day ${s.day} of ${s.daysInMonth}): spent ${Money.fmt(s.spent)}; same date last month ${Money.fmt(s.prevSameTotal)}; projected month end ${Money.fmt(s.projected)}; total budget ${Money.fmt(s.totalBudget)}. Last month total: ${Money.fmt(s.prevTotal)}.',
     )
     ..writeln('By category (this month so far | same date last month | last month total | projected | budget):');
   for (final c in s.cats.values) {
     if (c.spent == 0 && c.prev == 0 && c.budget == 0) continue;
     b.writeln(
-      '- ${c.category.name}: ${Money.inr(c.spent)} | ${Money.inr(c.prevSame)} | ${Money.inr(c.prev)} | ${Money.inr(c.projected)} | ${c.budget > 0 ? Money.inr(c.budget) : 'none'}',
+      '- ${c.category.name}: ${Money.fmt(c.spent)} | ${Money.fmt(c.prevSame)} | ${Money.fmt(c.prev)} | ${Money.fmt(c.projected)} | ${c.budget > 0 ? Money.fmt(c.budget) : 'none'}',
     );
   }
   b
     ..writeln(
-      'Patterns: weekend day avg ${Money.inr(s.weekendAvg)}, weekday avg ${Money.inr(s.weekdayAvg)}; ${(s.lateShare * 100).round()}% of last month day-to-day spend after 9 PM.',
+      'Patterns: weekend day avg ${Money.fmt(s.weekendAvg)}, weekday avg ${Money.fmt(s.weekdayAvg)}; ${(s.lateShare * 100).round()}% of last month day-to-day spend after 9 PM.',
     )
     ..writeln('Rule-based findings:');
   for (final l in s.leaks) {

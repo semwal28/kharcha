@@ -56,6 +56,24 @@ update public.transactions set amount_paise = 1 where user_id = '11111111-1111-1
 reset role;
 do $$ begin assert (select count(*) from public.transactions where amount_paise = 1) = 0, 'B must not edit A rows'; raise notice 'PASS user B cannot edit user A rows'; end $$;
 
+-- Goals and splits are private too.
+set role authenticated;
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', false);
+insert into public.goals (name, target_paise) values ('Goa trip', 2000000);
+insert into public.splits (person, amount_paise, note) values ('Rahul', 45000, 'Pizza');
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', false);
+do $$ begin
+  assert (select count(*) from public.goals) = 0, 'B must not see A goals';
+  assert (select count(*) from public.splits) = 0, 'B must not see A splits';
+  raise notice 'PASS user B cannot read user A goals or splits';
+end $$;
+select pg_temp.must_fail('a goal for another user',
+  'insert into public.goals (user_id, name, target_paise) values (''11111111-1111-1111-1111-111111111111'', ''x'', 100)');
+select pg_temp.must_fail('a negative split', 'insert into public.splits (person, amount_paise) values (''x'', -5)');
+update public.goals set saved_paise = 1;
+reset role;
+do $$ begin assert (select saved_paise from public.goals) = 0, 'B must not edit A goal'; raise notice 'PASS user B cannot edit user A goals'; end $$;
+
 -- Deleting an account (what the delete-account function does) removes all its data.
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';
@@ -64,6 +82,7 @@ do $$ begin
   assert (select count(*) from public.categories where user_id = '11111111-1111-1111-1111-111111111111') = 0, 'custom categories deleted';
   assert (select count(*) from public.budgets where user_id = '11111111-1111-1111-1111-111111111111') = 0, 'budgets deleted';
   assert (select count(*) from public.profiles where id = '11111111-1111-1111-1111-111111111111') = 0, 'profile deleted';
+  assert (select count(*) from public.goals) = 0 and (select count(*) from public.splits) = 0, 'goals and splits deleted';
   assert (select count(*) from public.transactions where user_id = '22222222-2222-2222-2222-222222222222') = 1, 'other users untouched';
   raise notice 'PASS deleting an account removes all of its data';
 end $$;

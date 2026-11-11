@@ -9,6 +9,7 @@ import '../../domain/analysis.dart';
 import '../../services/ai_coach.dart';
 import '../../state/app_state.dart';
 import '../home/home_screen.dart';
+import '../report/report_screen.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/motion.dart';
@@ -25,6 +26,27 @@ class InsightsScreen extends ConsumerWidget {
 
     final blocks = <Widget>[
       _SaveCard(s: s),
+      Material(
+        color: k.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: k.line),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          leading: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(color: k.popSoft, borderRadius: BorderRadius.circular(12)),
+            child: Icon(Icons.auto_graph_rounded, color: k.popInk, size: 20),
+          ),
+          title: Text('Monthly report', style: context.text.titleSmall),
+          subtitle: Text('Your month on one card. Share it.', style: context.text.bodySmall),
+          trailing: Icon(Icons.chevron_right_rounded, color: k.ink2),
+          onTap: () => openMonthReport(context),
+        ),
+      ),
       SectionHeader('Where to save', trailing: Text('${s.leaks.length} found', style: context.text.bodySmall)),
       KCard(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
@@ -110,7 +132,7 @@ class _SaveCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Odometer(
-                    text: Money.inr(s.monthlySavings),
+                    text: Money.fmt(s.monthlySavings),
                     style: TextStyle(fontFamily: kDisplay, fontSize: 36, fontWeight: FontWeight.w700, color: k.good, letterSpacing: -.8),
                   ),
                   const SizedBox(width: 6),
@@ -125,7 +147,7 @@ class _SaveCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '${Money.inr(s.monthlySavings * 12)} a year${s.oneTimeSavings > 0 ? ' + ${Money.inr(s.oneTimeSavings)} to get back' : ''}',
+                '${Money.fmt(s.monthlySavings * 12)} a year${s.oneTimeSavings > 0 ? ' + ${Money.fmt(s.oneTimeSavings)} to get back' : ''}',
                 style: context.text.bodySmall,
               ),
             ],
@@ -158,7 +180,7 @@ class _Stat extends StatelessWidget {
         const SizedBox(height: 2),
         CountUp(
           value: paise,
-          format: Money.inr,
+          format: Money.fmt,
           delay: const Duration(milliseconds: 300),
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: color ?? context.k.ink),
         ),
@@ -234,7 +256,7 @@ class _AiPlanCardState extends ConsumerState<_AiPlanCard> {
                       children: [
                         Expanded(child: Text(it.title, style: context.text.titleSmall)),
                         Text(
-                          '${Money.inr(it.monthlyPaise)}/mo',
+                          '${Money.fmt(it.monthlyPaise)}/mo',
                           style: TextStyle(fontWeight: FontWeight.w700, color: k.good, fontFeatures: kTabular),
                         ),
                       ],
@@ -327,7 +349,7 @@ class _DailyChartCardState extends State<_DailyChartCard> with SingleTickerProvi
     if (_sel! > s.day) return '${fmtDay(day)}: not yet';
     final d = s.daily[_sel! - 1];
     final over = d.amount - s.dailyBudget;
-    return '${fmtDay(day)} · ${Money.inr(d.amount)} · ${d.count} spend${d.count == 1 ? '' : 's'}${over > 0 ? ' · ${Money.inr(over)} over' : ''}';
+    return '${fmtDay(day)} · ${Money.fmt(d.amount)} · ${d.count} spend${d.count == 1 ? '' : 's'}${over > 0 ? ' · ${Money.fmt(over)} over' : ''}';
   }
 
   @override
@@ -398,7 +420,7 @@ class _DailyChartCardState extends State<_DailyChartCard> with SingleTickerProvi
                     child: CustomPaint(size: const Size(14, 2), painter: _DashPainter(k.pop)),
                   ),
                   const SizedBox(width: 6),
-                  Text('Daily budget ${Money.inr(s.dailyBudget)}', style: context.text.bodySmall),
+                  Text('Daily budget ${Money.fmt(s.dailyBudget)}', style: context.text.bodySmall),
                 ],
               ),
             ],

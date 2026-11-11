@@ -66,5 +66,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo of a receipt to fill in the amount. The photo is read on your phone.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Pick a receipt photo to fill in the amount. The photo is read on your phone.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Use Face ID to unlock Spendwell.</string>
 </dict>
 </plist>

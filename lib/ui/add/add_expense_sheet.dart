@@ -6,6 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/money.dart';
 import '../../data/models.dart';
 import '../../domain/category_guess.dart';
+import '../../domain/recurring.dart';
+import '../../domain/text_parsers.dart';
+import '../../services/receipt/receipt_scanner.dart';
 import '../../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -22,6 +25,7 @@ class AddPrefill {
 class AddResult {
   const AddResult({
     required this.txnId,
+    required this.categoryId,
     required this.amountPaise,
     required this.categoryName,
     required this.newCategory,
@@ -29,6 +33,7 @@ class AddResult {
     this.edited = false,
   });
   final String txnId;
+  final String categoryId;
   final bool edited;
   final int amountPaise;
   final String categoryName;
@@ -75,13 +80,102 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
   final _otherName = TextEditingController();
   late DateTime _date = dateOnly(_editing?.spentAt ?? ref.read(clockProvider)());
   late PayMethod _pay = _editing?.pay ?? widget.prefill?.pay ?? PayMethod.upi;
+  late bool _repeat = _editing?.isRecurring ?? false;
+  bool _splitOn = false;
+  final _people = TextEditingController();
+
+  /// "Filled from SMS" / "Read from receipt", shown briefly after auto-fill.
+  String? _filledFrom;
   int _popTick = 0;
   int _shakeTick = 0;
   bool _saving = false;
   final _keys = FocusNode(debugLabel: 'keypad');
 
+  List<String> get _names => _people.text.split(',').map((n) => n.trim()).where((n) => n.isNotEmpty).toList();
+
+  void _fill({int? amountPaise, String? note, DateTime? date, PayMethod? pay, required String source}) {
+    final today = dateOnly(ref.read(clockProvider)());
+    setState(() {
+      if (amountPaise != null) {
+        _amt = '${(amountPaise / 100).round()}';
+        _popTick++;
+      }
+      if (note != null && note.isNotEmpty) _note.text = note;
+      if (date != null && !date.isAfter(today) && today.difference(date).inDays <= 365) _date = dateOnly(date);
+      if (pay != null) _pay = pay;
+      _filledFrom = source;
+    });
+    if (note != null) _onNote(note);
+    HapticFeedback.mediumImpact();
+  }
+
+  Future<void> _pasteSms() async {
+    String text = '';
+    try {
+      text = (await Clipboard.getData(Clipboard.kTextPlain))?.text?.trim() ?? '';
+    } catch (_) {}
+    if (parseBankSms(text) == null && mounted) {
+      // Nothing usable on the clipboard: let them paste it by hand.
+      final ctl = TextEditingController(text: text);
+      final typed = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Paste a bank SMS'),
+          content: TextField(
+            controller: ctl,
+            autofocus: true,
+            minLines: 3,
+            maxLines: 6,
+            decoration: const InputDecoration(hintText: 'e.g. Rs.450 debited from A/c XX1234 to VPA swiggy@icici…'),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, ctl.text), child: const Text('Read it')),
+          ],
+        ),
+      );
+      ctl.dispose();
+      if (typed == null) return;
+      text = typed;
+    }
+    final sms = parseBankSms(text);
+    if (!mounted) return;
+    if (sms == null) {
+      toast(context, 'Couldn\'t find an amount in that message.');
+    } else if (sms.isCredit) {
+      toast(context, 'That message is money coming in, not an expense.');
+    } else {
+      _fill(amountPaise: sms.amountPaise, note: sms.merchant, date: sms.date, pay: sms.pay, source: 'Filled from SMS');
+    }
+  }
+
+  Future<void> _scanReceipt() async {
+    final camera = await showModalBottomSheet<bool>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(leading: const Icon(Icons.photo_camera_outlined), title: const Text('Take a photo'), onTap: () => Navigator.pop(ctx, true)),
+            ListTile(leading: const Icon(Icons.photo_library_outlined), title: const Text('Choose from gallery'), onTap: () => Navigator.pop(ctx, false)),
+          ],
+        ),
+      ),
+    );
+    if (camera == null) return;
+    try {
+      final r = await ReceiptScanner.scan(camera: camera);
+      if (r == null || !mounted) return;
+      if (r.totalPaise == null) toast(context, 'Couldn\'t read a total. Type the amount instead.');
+      _fill(amountPaise: r.totalPaise, note: r.merchant, date: r.date, source: 'Read from receipt');
+    } catch (_) {
+      if (mounted) toast(context, 'Couldn\'t read the receipt. Try a sharper photo.');
+    }
+  }
+
   @override
   void dispose() {
+    _people.dispose();
     _note.dispose();
     _otherName.dispose();
     _keys.dispose();
@@ -168,6 +262,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
                     categoryId: _catId,
                     spentAt: DateTime(_date.year, _date.month, _date.day, at.hour, at.minute),
                     pay: _pay,
+                    isRecurring: _repeat,
                   ),
               newCategoryName: newName,
             );
@@ -175,6 +270,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
         navigator.pop(
           AddResult(
             txnId: saved.id,
+            categoryId: saved.categoryId,
             amountPaise: saved.amountPaise,
             categoryName: cat.name,
             newCategory: newName != null && !hadCategory,
@@ -189,23 +285,28 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
       }
       return;
     }
+    final split = _splitOn ? splitEqually(rupees * 100, _names) : (yours: rupees * 100, theirs: const <({String person, int amountPaise})>[]);
     try {
-      final txn = await ref
-          .read(appDataProvider.notifier)
-          .addTxn(
-            NewTxn(
-              amountPaise: rupees * 100,
-              categoryId: _catId!,
-              spentAt: DateTime(_date.year, _date.month, _date.day, now.hour, now.minute),
-              note: note,
-              pay: _pay,
-            ),
-            newCategoryName: newName,
-          );
+      final notifier = ref.read(appDataProvider.notifier);
+      final txn = await notifier.addTxn(
+        NewTxn(
+          amountPaise: split.yours,
+          categoryId: _catId!,
+          spentAt: DateTime(_date.year, _date.month, _date.day, now.hour, now.minute),
+          note: note,
+          pay: _pay,
+          isRecurring: _repeat,
+        ),
+        newCategoryName: newName,
+      );
+      if (split.theirs.isNotEmpty) {
+        await notifier.addSplits(split.theirs, note: note ?? ref.read(appDataProvider).requireValue.cat(txn.categoryId).name);
+      }
       final cat = ref.read(appDataProvider).requireValue.cat(txn.categoryId);
       navigator.pop(
         AddResult(
           txnId: txn.id,
+          categoryId: txn.categoryId,
           amountPaise: txn.amountPaise,
           categoryName: cat.name,
           newCategory: newName != null && !hadCategory,
@@ -250,7 +351,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
         ? 'Enter an amount'
         : _catId == null
         ? 'Pick a category'
-        : '${_editing != null ? 'Save' : 'Add'} ${Money.rupees(rupees)} · ${_catLabel(d)}';
+        : '${_editing != null ? 'Save' : 'Add'} ${Money.whole(rupees)} · ${_catLabel(d)}';
 
     return Focus(
       focusNode: _keys,
@@ -267,16 +368,32 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(_editing != null ? 'Edit expense' : 'Add expense', style: context.text.titleLarge),
+                    Row(
+                      children: [
+                        Expanded(child: Text(_editing != null ? 'Edit expense' : 'Add expense', style: context.text.titleLarge)),
+                        if (_editing == null) ...[
+                          _QuickAction(icon: Icons.sms_outlined, label: 'Paste bank SMS', onTap: _pasteSms),
+                          if (ReceiptScanner.supported) ...[
+                            const SizedBox(width: 8),
+                            _QuickAction(icon: Icons.document_scanner_outlined, label: 'Scan receipt', onTap: _scanReceipt),
+                          ],
+                        ],
+                      ],
+                    ),
                     _AmountDisplay(amount: _amt, popTick: _popTick, shakeTick: _shakeTick),
-                    _Label('Note', trailing: Text('optional', style: context.text.bodySmall)),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: _filledFrom == null
+                          ? const SizedBox.shrink()
+                          : Center(key: ValueKey(_filledFrom), child: Pill(PillKind.good, '$_filledFrom · check the details')),
+                    ),
                     TextField(
                       controller: _note,
                       onChanged: _onNote,
                       maxLength: 60,
                       textInputAction: TextInputAction.done,
                       onSubmitted: (_) => _save(),
-                      decoration: const InputDecoration(hintText: 'e.g. Lunch with team', counterText: ''),
+                      decoration: const InputDecoration(hintText: 'Note (optional), e.g. Lunch with team', counterText: ''),
                     ),
                     const SizedBox(height: 12),
                     _Label(
@@ -339,6 +456,54 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
                         onChanged: (v) => setState(() => _pay = v),
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        _ChipToggle(icon: Icons.event_repeat_rounded, label: 'Repeats monthly', value: _repeat, onChanged: (v) => setState(() => _repeat = v)),
+                        if (_editing == null)
+                          _ChipToggle(
+                            icon: Icons.call_split_rounded,
+                            label: 'Split this bill',
+                            value: _splitOn,
+                            onChanged: (v) => setState(() => _splitOn = v),
+                          ),
+                      ],
+                    ),
+                    if (_editing == null) ...[
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOutCubic,
+                        child: !_splitOn
+                            ? const SizedBox(width: double.infinity)
+                            : Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    TextField(
+                                      controller: _people,
+                                      onChanged: (_) => setState(() {}),
+                                      decoration: const InputDecoration(hintText: 'Split with, e.g. Rahul, Priya'),
+                                    ),
+                                    if (rupees > 0 && _names.isNotEmpty) ...[
+                                      const SizedBox(height: 6),
+                                      Builder(
+                                        builder: (context) {
+                                          final s = splitEqually(rupees * 100, _names);
+                                          return Text(
+                                            'You pay ${Money.fmt(s.yours)} · each owes you ${Money.fmt(s.theirs.first.amountPaise)}',
+                                            style: context.text.bodySmall?.copyWith(color: k.accent, fontWeight: FontWeight.w600),
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     _Keypad(onKey: _press),
                     const SizedBox(height: 10),
@@ -408,7 +573,7 @@ class _AmountDisplay extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
-          '₹',
+          Money.symbol,
           style: style.copyWith(fontSize: size * .7, color: k.muted),
         ),
         const SizedBox(width: 6),
@@ -433,8 +598,8 @@ class _AmountDisplay extends StatelessWidget {
     }
     return Semantics(
       liveRegion: true,
-      label: text.isEmpty ? 'Amount, empty' : 'Amount ₹$text',
-      child: SizedBox(height: 70, child: ExcludeSemantics(child: row)),
+      label: text.isEmpty ? 'Amount, empty' : 'Amount ${Money.symbol}$text',
+      child: SizedBox(height: 62, child: ExcludeSemantics(child: row)),
     );
   }
 }
@@ -607,9 +772,9 @@ class _Keypad extends StatelessWidget {
       crossAxisCount: 3,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 8,
+      mainAxisSpacing: 6,
       crossAxisSpacing: 8,
-      childAspectRatio: 2.6,
+      childAspectRatio: 2.9,
       children: [for (final key in keys) _Key(key: ValueKey('key-$key'), label: key, onTap: () => onKey(key))],
     );
   }
@@ -653,6 +818,93 @@ class _KeyState extends State<_Key> {
                     widget.label,
                     style: TextStyle(fontFamily: kDisplay, fontSize: 22, fontWeight: FontWeight.w600, color: k.ink),
                   ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final k = context.k;
+    return Tooltip(
+      message: label,
+      child: Squish(
+        child: Material(
+          color: k.accentSoft,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Semantics(
+              button: true,
+              label: label,
+              child: SizedBox.square(dimension: 38, child: Icon(icon, size: 19, color: k.accent)),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A small on/off chip, e.g. "Repeats monthly".
+class _ChipToggle extends StatelessWidget {
+  const _ChipToggle({required this.icon, required this.label, required this.value, required this.onChanged});
+  final IconData icon;
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final k = context.k;
+    return Semantics(
+      toggled: value,
+      button: true,
+      child: Squish(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+            color: value ? k.accent : k.bg,
+            borderRadius: BorderRadius.circular(99),
+            border: Border.all(color: value ? k.accent : k.line),
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(99),
+              onTap: () {
+                HapticFeedback.selectionClick();
+                onChanged(!value);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      transitionBuilder: (c, a) => ScaleTransition(scale: a, child: c),
+                      child: Icon(value ? Icons.check_rounded : icon, key: ValueKey(value), size: 16, color: value ? k.accentInk : k.ink2),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      label,
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: value ? k.accentInk : k.ink),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),

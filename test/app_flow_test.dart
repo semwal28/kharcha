@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kharcha/data/local_repository.dart';
 import 'package:kharcha/main.dart';
 import 'package:kharcha/state/app_state.dart';
+import 'package:kharcha/ui/budgets/budgets_screen.dart';
 import 'package:kharcha/ui/shell.dart';
 import 'package:kharcha/ui/tx/tx_sheet.dart';
 
@@ -96,15 +97,23 @@ void main() {
     expect(data.txns.any((t) => t.categoryId == gifts.single.id && t.amountPaise == 99900), isTrue);
   });
 
-  testWidgets('tabs open Insights, Budgets and Ask AI', (tester) async {
+  testWidgets('tabs open Insights, Plan and Ask AI', (tester) async {
     await _start(tester);
     await tester.tap(find.text('Insights'));
     await _settle(tester, 2);
     expect(find.text('YOU COULD SAVE'), findsOneWidget);
     expect(find.text('Where to save'), findsOneWidget);
 
-    await tester.tap(find.text('Budgets'));
+    await tester.tap(find.text('Plan'));
     await _settle(tester, 2);
+    expect(find.text('Savings goals'), findsOneWidget);
+    expect(find.text('Goa trip'), findsOneWidget);
+    expect(find.text('Owed to you'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Suggested budgets'),
+      300,
+      scrollable: find.descendant(of: find.byType(BudgetsScreen), matching: find.byType(Scrollable)).first,
+    );
     expect(find.text('Suggested budgets'), findsOneWidget);
 
     await tester.tap(find.text('Ask AI'));
@@ -187,5 +196,54 @@ void main() {
     await _settle(tester, 1);
     expect((await repo.load()).txns.where((t) => t.note == 'Movie night'), hasLength(1));
     await _settle(tester, 3);
+  });
+
+  testWidgets('split a bill: you keep your share, friends owe the rest', (tester) async {
+    final repo = await _start(tester);
+    await tester.tap(find.text('Add'));
+    await _settle(tester, 1);
+    await tester.enterText(find.byType(TextField).first, 'Pizza with friends');
+    await _type(tester, '900');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.ensureVisible(find.text('Split this bill'));
+    await tester.tap(find.text('Split this bill'));
+    await _settle(tester, 1);
+    await tester.enterText(find.widgetWithText(TextField, 'Split with, e.g. Rahul, Priya'), 'Asha, Ben');
+    await tester.pump();
+    expect(find.text('You pay ₹300 · each owes you ₹300'), findsOneWidget);
+    final add = find.textContaining('Add ₹900');
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    await _settle(tester);
+    final data = await repo.load();
+    expect(data.txns.any((t) => t.amountPaise == 30000 && t.note == 'Pizza with friends'), isTrue);
+    expect(data.splits.where((s) => s.note == 'Pizza with friends').map((s) => (s.person, s.amountPaise)), unorderedEquals([('Asha', 30000), ('Ben', 30000)]));
+  });
+
+  testWidgets('add money to a goal', (tester) async {
+    final repo = await _start(tester);
+    await tester.tap(find.text('Plan'));
+    await _settle(tester, 2);
+    await tester.tap(find.text('Goa trip'));
+    await _settle(tester, 1);
+    expect(find.text('₹11,500 to go'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Amount'), '1500');
+    await tester.tap(find.text('Add money'));
+    await _settle(tester, 2);
+    expect(find.text('₹10,000 to go'), findsOneWidget);
+    expect((await repo.load()).goals.single.savedPaise, 1000000);
+  });
+
+  testWidgets('monthly report opens from Insights', (tester) async {
+    await _start(tester);
+    await tester.tap(find.text('Insights'));
+    await _settle(tester, 2);
+    await tester.tap(find.text('Monthly report'));
+    await _settle(tester, 2);
+    expect(find.text('NOVEMBER 2026'), findsOneWidget);
+    expect(find.text('Share as picture'), findsOneWidget);
+    await tester.tap(find.text('Last month'));
+    await _settle(tester, 2);
+    expect(find.text('OCTOBER 2026'), findsOneWidget);
   });
 }

@@ -85,7 +85,7 @@ class Txn {
   /// Used to spot double charges and repeat spends.
   String get matchKey => (merchant?.trim().isNotEmpty ?? false) ? merchant!.trim().toLowerCase() : (note ?? '').trim().toLowerCase();
 
-  Txn copyWith({String? id, String? categoryId, int? amountPaise, DateTime? spentAt, PayMethod? pay}) => Txn(
+  Txn copyWith({String? id, String? categoryId, int? amountPaise, DateTime? spentAt, PayMethod? pay, bool? isRecurring}) => Txn(
     id: id ?? this.id,
     amountPaise: amountPaise ?? this.amountPaise,
     categoryId: categoryId ?? this.categoryId,
@@ -93,7 +93,7 @@ class Txn {
     note: note,
     merchant: merchant,
     pay: pay ?? this.pay,
-    isRecurring: isRecurring,
+    isRecurring: isRecurring ?? this.isRecurring,
   );
 
   /// Same expense with a new note (null clears it). The note also becomes the
@@ -113,13 +113,46 @@ class Txn {
 
 /// What the add-expense sheet submits.
 class NewTxn {
-  const NewTxn({required this.amountPaise, required this.categoryId, required this.spentAt, this.note, this.pay = PayMethod.upi});
+  const NewTxn({required this.amountPaise, required this.categoryId, required this.spentAt, this.note, this.pay = PayMethod.upi, this.isRecurring = false});
 
   final int amountPaise;
   final String categoryId;
   final DateTime spentAt;
   final String? note;
   final PayMethod pay;
+
+  /// "Repeats monthly": added again automatically each month.
+  final bool isRecurring;
+}
+
+/// Money put aside for something, e.g. "Goa trip".
+class Goal {
+  const Goal({required this.id, required this.name, required this.targetPaise, this.savedPaise = 0});
+  final String id;
+  final String name;
+  final int targetPaise;
+  final int savedPaise;
+
+  double get progress => targetPaise <= 0 ? 0 : (savedPaise / targetPaise).clamp(0, 1).toDouble();
+  bool get reached => savedPaise >= targetPaise;
+  int get leftPaise => (targetPaise - savedPaise).clamp(0, targetPaise);
+
+  Goal copyWith({String? name, int? targetPaise, int? savedPaise}) =>
+      Goal(id: id, name: name ?? this.name, targetPaise: targetPaise ?? this.targetPaise, savedPaise: savedPaise ?? this.savedPaise);
+}
+
+/// Someone's share of a bill you paid: they owe you this.
+class Split {
+  const Split({required this.id, required this.person, required this.amountPaise, required this.createdAt, this.note, this.settled = false});
+  final String id;
+  final String person;
+  final int amountPaise;
+  final DateTime createdAt;
+  final String? note;
+  final bool settled;
+
+  Split copyWith({bool? settled}) =>
+      Split(id: id, person: person, amountPaise: amountPaise, createdAt: createdAt, note: note, settled: settled ?? this.settled);
 }
 
 class Profile {
@@ -134,12 +167,19 @@ class Profile {
 }
 
 class AppData {
-  AppData({required this.categories, required this.txns, required this.budgets, required this.profile})
-    : _byId = {for (final c in categories) c.id: c},
-      _byKey = {
-        for (final c in categories)
-          if (c.key != null) c.key!: c,
-      };
+  AppData({
+    required this.categories,
+    required this.txns,
+    required this.budgets,
+    required this.profile,
+    this.goals = const [],
+    this.splits = const [],
+    this.extrasAvailable = true,
+  }) : _byId = {for (final c in categories) c.id: c},
+       _byKey = {
+         for (final c in categories)
+           if (c.key != null) c.key!: c,
+       };
 
   final List<Category> categories;
 
@@ -149,6 +189,14 @@ class AppData {
   /// category id -> monthly limit in paise
   final Map<String, int> budgets;
   final Profile profile;
+  final List<Goal> goals;
+
+  /// Newest first.
+  final List<Split> splits;
+
+  /// False when the server is missing the goals/splits tables (the newer
+  /// database update has not been run yet). Those features hide until it is.
+  final bool extrasAvailable;
 
   final Map<String, Category> _byId;
   final Map<String, Category> _byKey;
@@ -166,13 +214,16 @@ class AppData {
     other,
   ];
 
-  AppData copyWith({List<Category>? categories, List<Txn>? txns, Map<String, int>? budgets, Profile? profile}) {
+  AppData copyWith({List<Category>? categories, List<Txn>? txns, Map<String, int>? budgets, Profile? profile, List<Goal>? goals, List<Split>? splits}) {
     final list = txns ?? this.txns;
     return AppData(
       categories: categories ?? this.categories,
       txns: txns == null ? list : (List.of(list)..sort((a, b) => b.spentAt.compareTo(a.spentAt))),
       budgets: budgets ?? this.budgets,
       profile: profile ?? this.profile,
+      goals: goals ?? this.goals,
+      splits: splits ?? this.splits,
+      extrasAvailable: extrasAvailable,
     );
   }
 }

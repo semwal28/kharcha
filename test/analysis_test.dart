@@ -20,8 +20,8 @@ void main() {
 
   group('Money', () {
     test('formats rupees with Indian grouping', () {
-      expect(Money.inr(12500000), '₹1,25,000');
-      expect(Money.inr(25000), '₹250');
+      expect(Money.fmt(12500000), '₹1,25,000');
+      expect(Money.fmt(25000), '₹250');
       expect(Money.short(250000), '₹2.5k');
       expect(Money.short(80000), '₹800');
     });
