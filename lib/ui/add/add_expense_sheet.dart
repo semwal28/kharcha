@@ -646,7 +646,7 @@ class _CategoryGrid extends StatelessWidget {
                         scale: sel ? 1.12 : 1,
                         duration: const Duration(milliseconds: 350),
                         curve: Curves.elasticOut,
-                        child: CatIcon(c.isCustom ? 'tag' : c.icon, size: 28, bg: sel ? k.pop : k.surface, fg: sel ? k.popInk : k.ink2),
+                        child: CatIcon(c.isCustom ? 'tag' : c.icon, size: 28, bg: sel ? k.pop : null, fg: sel ? k.popInk : null),
                       ),
                       const SizedBox(height: 4),
                       Padding(

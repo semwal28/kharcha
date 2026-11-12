@@ -521,7 +521,7 @@ class CategoryRows extends StatelessWidget {
                       ),
                       GrowBar(
                         fraction: c.spent / maxV,
-                        color: k.accent,
+                        color: categoryColor(context, c.category.isCustom ? 'tag' : c.category.icon),
                         track: k.surface2,
                         marker: c.prevSame / maxV,
                         delay: Duration(milliseconds: 250 + i * 70),

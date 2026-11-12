@@ -25,6 +25,8 @@ class AskScreen extends ConsumerStatefulWidget {
 }
 
 class _AskScreenState extends ConsumerState<AskScreen> {
+  /// True once the server said AI isn't set up: answer on the device.
+  bool _onDevice = false;
   final _turns = <ChatTurn>[const ChatTurn(false, 'Hi! Ask me anything about your spending.')];
   final _input = TextEditingController();
   final _scroll = ScrollController();
@@ -64,17 +66,23 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     _toBottom();
     final coach = ref.read(aiCoachProvider);
     String reply;
-    if (!coach.available) {
+    if (!coach.available || _onDevice) {
       await Future.delayed(const Duration(milliseconds: 350));
       reply = _localAnswer(q);
     } else {
       try {
         final s = ref.read(summaryProvider)!;
         final data = ref.read(appDataProvider).requireValue;
-        // Skip the greeting: the conversation sent to Claude starts with the user.
+        // Skip the greeting: the conversation sent to the AI starts with the user.
         reply = await coach.chat(aiSummary(s, data), _turns.skip(1).toList());
       } on AiException catch (e) {
-        reply = e.message;
+        if (e.unavailable) {
+          // No server AI yet: answer on the device from now on.
+          _onDevice = true;
+          reply = _localAnswer(q);
+        } else {
+          reply = e.message;
+        }
       } catch (_) {
         reply = 'Could not reach the server. Check your internet.';
       }
@@ -101,7 +109,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
               Row(
                 children: [
                   Expanded(child: Text('Ask about your money', style: context.text.titleMedium)),
-                  Text(ref.watch(aiCoachProvider).available ? 'Powered by Claude' : 'Quick answers', style: context.text.bodySmall),
+                  Text(ref.watch(aiCoachProvider).available && !_onDevice ? 'AI coach' : 'On-device answers', style: context.text.bodySmall),
                 ],
               ),
               const SizedBox(height: 10),

@@ -51,7 +51,7 @@ expense,budget,money,spending,tracker,savings,rupee,india,finance,upi
 | Financial info → Other financial info (expenses entered by the user) | Collected, used for app functionality |
 | Is data encrypted in transit? | Yes (HTTPS) |
 | Can users request deletion? | Yes, in the app (Settings → Delete account) |
-| AI processing | Spending summaries are sent to Anthropic (Claude) only when the user asks for AI help. Anthropic processes them as a service provider for the app, so on the form this counts as "processed on our behalf", not shared. |
+| AI processing | Spending summaries are sent to the AI provider (Groq, Google Gemini or Anthropic Claude, whichever is set up) only when the user asks for AI help. The provider processes them on the app's behalf, so on the form this counts as "processed on our behalf", not shared. |
 
 ## Content rating
 

@@ -42,7 +42,7 @@ abstract final class Exporter {
 
   static Future<Uint8List> pdf(AppData data, MonthSummary s) async {
     final doc = pw.Document(title: '$kAppName report ${s.monthName} ${s.now.year}', author: kAppName);
-    final teal = PdfColor.fromInt(0xFF0D5C70);
+    final brand = PdfColor.fromInt(0xFF5B2EE6);
     final cats = s.cats.values.where((c) => c.spent > 0).toList()..sort((a, b) => b.spent.compareTo(a.spent));
     final month = s.cur.toList()..sort((a, b) => a.spentAt.compareTo(b.spentAt));
     doc.addPage(
@@ -54,7 +54,7 @@ abstract final class Exporter {
           children: [
             pw.Text(
               kAppName,
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: teal, fontSize: 16),
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: brand, fontSize: 16),
             ),
             pw.Text('${s.monthName} ${s.now.year}', style: const pw.TextStyle(fontSize: 11)),
           ],
@@ -86,7 +86,7 @@ abstract final class Exporter {
               for (final c in cats) [c.category.name, _pdfMoney(c.spent), c.budget > 0 ? _pdfMoney(c.budget) : '-', _pdfMoney(c.prev)],
             ],
             headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white, fontSize: 10),
-            headerDecoration: pw.BoxDecoration(color: teal),
+            headerDecoration: pw.BoxDecoration(color: brand),
             cellStyle: const pw.TextStyle(fontSize: 10),
             cellAlignments: {1: pw.Alignment.centerRight, 2: pw.Alignment.centerRight, 3: pw.Alignment.centerRight},
           ),

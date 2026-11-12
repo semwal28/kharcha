@@ -20,6 +20,7 @@ import 'theme.dart';
 import 'theme_controller.dart';
 import 'tx/tx_sheet.dart';
 import '../domain/recurring.dart';
+import '../domain/streak.dart';
 import 'widgets/budget_alert.dart';
 import 'widgets/common.dart';
 import 'widgets/motion.dart';
@@ -138,6 +139,8 @@ class _TopBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final k = context.k;
     final now = ref.watch(clockProvider)();
+    final txns = ref.watch(appDataProvider).value?.txns ?? const [];
+    final streak = loggingStreak(txns, now);
     Widget mark = const BrandMark(size: 34);
     if (!reduceMotion(context)) {
       mark = mark
@@ -151,17 +154,21 @@ class _TopBar extends ConsumerWidget {
         children: [
           mark,
           const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                kAppName,
-                style: TextStyle(fontFamily: kDisplay, fontWeight: FontWeight.w700, fontSize: 20, letterSpacing: -.4, color: k.ink, height: 1.1),
-              ),
-              Text('${monthNames[now.month - 1]} ${now.year}', style: context.text.bodySmall),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  greeting(now),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontFamily: kDisplay, fontWeight: FontWeight.w700, fontSize: 20, letterSpacing: -.4, color: k.ink, height: 1.1),
+                ),
+                Text('$kAppName · ${monthNames[now.month - 1]} ${now.year}', style: context.text.bodySmall),
+              ],
+            ),
           ),
-          const Spacer(),
+          if (streak >= 2) _StreakChip(days: streak),
           IconButton(
             onPressed: onSettings,
             icon: Icon(Icons.tune_rounded, color: k.ink2),
@@ -170,6 +177,43 @@ class _TopBar extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+/// "🔥 5": days in a row with something logged. Keeps people coming back.
+class _StreakChip extends StatelessWidget {
+  const _StreakChip({required this.days});
+  final int days;
+
+  @override
+  Widget build(BuildContext context) {
+    final k = context.k;
+    Widget chip = Tooltip(
+      message: '$days-day streak: you\'ve logged spending $days days in a row',
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(8, 5, 11, 5),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [k.popSoft, Color.lerp(k.popSoft, k.badSoft, .5)!]),
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(color: k.pop.withValues(alpha: .45)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.local_fire_department_rounded, size: 18, color: Color(0xFFFF6B2C)),
+            const SizedBox(width: 3),
+            Text(
+              '$days',
+              style: TextStyle(fontFamily: kDisplay, fontWeight: FontWeight.w700, fontSize: 15, color: k.ink, fontFeatures: kTabular),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!reduceMotion(context)) {
+      chip = chip.animate(key: ValueKey(days)).scaleXY(begin: .5, end: 1, duration: 600.ms, curve: Curves.elasticOut);
+    }
+    return Semantics(label: '$days-day streak', child: chip);
   }
 }
 
@@ -344,7 +388,11 @@ class _AddButtonState extends State<_AddButton> with SingleTickerProviderStateMi
                   width: 54,
                   height: 54,
                   decoration: BoxDecoration(
-                    color: k.pop,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [k.pop, Color.lerp(k.pop, const Color(0xFFFF5E62), .55)!],
+                    ),
                     shape: BoxShape.circle,
                     border: Border.all(color: k.surface, width: 4),
                   ),

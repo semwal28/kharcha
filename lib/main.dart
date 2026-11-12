@@ -18,12 +18,13 @@ import 'ui/widgets/intro.dart';
 
 /// Pass these at build time to connect the live backend:
 ///   flutter run --dart-define=SUPABASE_URL=https://xyz.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
-/// Without them the app saves everything on the phone (starting with example data).
+/// Without them the app saves everything on the phone (starting empty).
 const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 const supabaseKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
 
-/// Build with --dart-define=AI_ENABLED=false to hide the AI features until the
-/// server has a Claude API key.
+/// Build with --dart-define=AI_ENABLED=false to skip the server AI and answer
+/// on the device only. With it on, the app still answers on the device until
+/// the server's ai-coach function has a free AI key (or a Claude key).
 const aiEnabled = bool.fromEnvironment('AI_ENABLED', defaultValue: true);
 
 Future<void> main() async {

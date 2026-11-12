@@ -5,6 +5,7 @@ import 'package:kharcha/data/local_repository.dart';
 import 'package:kharcha/main.dart';
 import 'package:kharcha/state/app_state.dart';
 import 'package:kharcha/ui/budgets/budgets_screen.dart';
+import 'package:kharcha/ui/insights/insights_screen.dart';
 import 'package:kharcha/ui/shell.dart';
 import 'package:kharcha/ui/tx/tx_sheet.dart';
 
@@ -256,5 +257,20 @@ void main() {
     await tester.tap(find.text('Last month'));
     await _settle(tester, 2);
     expect(find.text('OCTOBER 2026'), findsOneWidget);
+  });
+
+  testWidgets('savings plan works on the phone without the server AI', (tester) async {
+    await _start(tester);
+    await tester.tap(find.text('Insights'));
+    await _settle(tester, 2);
+    final build = find.text('Build my plan');
+    final list = find.descendant(of: find.byType(InsightsScreen), matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(build, 300, scrollable: list);
+    await tester.ensureVisible(build);
+    await tester.pump();
+    await tester.tap(build);
+    await _settle(tester, 2);
+    expect(find.text('Made on your phone'), findsOneWidget);
+    expect(find.text('New plan'), findsOneWidget);
   });
 }

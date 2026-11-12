@@ -1,8 +1,11 @@
 # Supabase CLI settings for Spendwell. Values not listed here use the CLI defaults.
 project_id = "kharcha"
 
+# Both functions check the signed-in user themselves (auth.getUser), which
+# works with both the legacy JWT secret and the new JWT signing keys. The
+# gateway check only understands the legacy secret, so it is off.
 [functions.ai-coach]
-verify_jwt = true
+verify_jwt = false
 
 [functions.delete-account]
-verify_jwt = true
+verify_jwt = false

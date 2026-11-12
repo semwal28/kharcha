@@ -3,6 +3,7 @@ import 'package:kharcha/core/money.dart';
 import 'package:kharcha/data/models.dart';
 import 'package:kharcha/data/sample_data.dart';
 import 'package:kharcha/domain/recurring.dart';
+import 'package:kharcha/domain/streak.dart';
 import 'package:kharcha/domain/text_parsers.dart';
 
 AppData _data(List<Txn> txns) => AppData(categories: builtinCategories, txns: txns, budgets: const {}, profile: const Profile());
@@ -136,6 +137,27 @@ Thank you''');
       final rentUsd = usd.firstWhere((t) => t.categoryId == 'rent').amountPaise;
       expect(rentInr, 1500000);
       expect(rentUsd, 75000);
+    });
+  });
+
+  group('streak', () {
+    Txn on(DateTime d) => Txn(id: '${d.day}', amountPaise: 100, categoryId: 'dining', spentAt: d);
+    test('counts days in a row up to today', () {
+      final now = DateTime(2026, 11, 12, 20);
+      expect(
+        loggingStreak([on(DateTime(2026, 11, 12, 9)), on(DateTime(2026, 11, 11, 9)), on(DateTime(2026, 11, 10, 9)), on(DateTime(2026, 11, 8, 9))], now),
+        3,
+      );
+    });
+    test('nothing yet today keeps yesterday\'s streak', () {
+      final now = DateTime(2026, 11, 12, 8);
+      expect(loggingStreak([on(DateTime(2026, 11, 11, 9)), on(DateTime(2026, 11, 10, 9))], now), 2);
+    });
+    test('a missed day resets it', () {
+      expect(loggingStreak([on(DateTime(2026, 11, 9, 9))], DateTime(2026, 11, 12, 8)), 0);
+    });
+    test('crosses month ends', () {
+      expect(loggingStreak([on(DateTime(2026, 11, 1, 9)), on(DateTime(2026, 10, 31, 9))], DateTime(2026, 11, 1, 20)), 2);
     });
   });
 }

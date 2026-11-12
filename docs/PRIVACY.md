@@ -37,7 +37,7 @@ Account data is stored with Supabase, our database provider, in Singapore (ap-so
 
 ## AI features
 
-When you ask for a savings plan or ask a question, the app sends a summary of your recent spending to our server, which sends it to Claude, an AI model made by Anthropic, to write the answer. The summary includes your expenses for the current and previous month, but not your email address. We do not store the AI's answers. Anthropic processes this data under its commercial terms: [NEEDS: confirm Anthropic's current API data-use and retention terms and link them here].
+When you ask for a savings plan or ask a question, the app sends a summary of your recent spending to our server, which sends it to an AI provider to write the answer: [NEEDS: the provider you set up — Groq, Google (Gemini API) or Anthropic (Claude)]. The summary includes your expenses for the current and previous month, but not your email address. We do not store the AI's answers. The provider processes this data under its API terms: [NEEDS: link the chosen provider's API data-use and retention terms; note that Google's free Gemini tier may use data to improve its products]. If the AI isn't set up, answers are worked out on your phone and nothing is sent.
 
 ## How long we keep data
 

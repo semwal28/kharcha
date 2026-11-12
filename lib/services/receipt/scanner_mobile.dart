@@ -4,7 +4,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../domain/text_parsers.dart';
 
-bool get supported => !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
+// iPhone joins once the ML Kit text bundle is added to the iOS app (docs/IOS.md).
+bool get supported => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
 Future<ParsedReceipt?> scan({required bool camera}) async {
   final photo = await ImagePicker().pickImage(source: camera ? ImageSource.camera : ImageSource.gallery, maxWidth: 2200, imageQuality: 92);

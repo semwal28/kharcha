@@ -6,9 +6,22 @@
 // Deleting the auth user removes the profile, expenses, custom categories,
 // budgets and AI usage rows too (every table references auth.users with
 // ON DELETE CASCADE). Required by Google Play for apps with sign-in.
-// SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided by Supabase.
+// SUPABASE_URL and the server key (SUPABASE_SERVICE_ROLE_KEY, or SUPABASE_SECRET_KEYS
+// on projects using the new API keys) are provided by Supabase.
 
 import { createClient } from "npm:@supabase/supabase-js@2.119.0";
+
+/** The server key: the legacy service_role key, or the default new secret key. */
+function serviceKey(): string {
+  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (legacy) return legacy;
+  try {
+    const keys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}") as Record<string, string>;
+    return keys.default ?? Object.values(keys)[0] ?? "";
+  } catch {
+    return "";
+  }
+}
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -27,7 +40,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json(405, { error: "method", message: "Use POST." });
 
-  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey());
   const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
   const { data } = jwt ? await admin.auth.getUser(jwt) : { data: null };
   const user = data?.user;

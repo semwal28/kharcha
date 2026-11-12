@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
 # Sets up the Spendwell backend on your Supabase project in one go:
-# database tables + security rules, the Claude key, and both server functions.
+# database tables + security rules, the AI key, and both server functions.
 #
 # Before you run it:
 #   1. Install the Supabase CLI: https://supabase.com/docs/guides/cli
 #   2. Log in:                   supabase login
-#   3. Put your Claude API key in the environment (from https://platform.claude.com):
-#        export ANTHROPIC_API_KEY=...
+#   3. Optional, for the AI coach, put ONE key in the environment:
+#        export AI_API_KEY=...         free, from https://console.groq.com/keys
+#        export ANTHROPIC_API_KEY=...  Claude, from https://platform.claude.com
+#      With neither, the app answers on the device instead.
 #
 # Usage: scripts/deploy_backend.sh <project-ref>
 #   (the project ref is the part of your project URL before .supabase.co)
 set -euo pipefail
 
 ref="${1:?Usage: scripts/deploy_backend.sh <project-ref>}"
-: "${ANTHROPIC_API_KEY:?Set ANTHROPIC_API_KEY first (create one at platform.claude.com)}"
 cd "$(dirname "$0")/.."
 
 echo "→ Linking project $ref"
@@ -22,11 +23,17 @@ supabase link --project-ref "$ref"
 echo "→ Creating tables and security rules"
 supabase db push
 
-echo "→ Saving the Claude API key as a server secret"
 secrets_file="$(mktemp)"
 trap 'rm -f "$secrets_file"' EXIT
-printf 'ANTHROPIC_API_KEY=%s\n' "$ANTHROPIC_API_KEY" > "$secrets_file"
-supabase secrets set --env-file "$secrets_file"
+for name in AI_API_KEY AI_BASE_URL AI_MODEL ANTHROPIC_API_KEY CLAUDE_MODEL; do
+  if [ -n "${!name:-}" ]; then printf '%s=%s\n' "$name" "${!name}" >> "$secrets_file"; fi
+done
+if [ -s "$secrets_file" ]; then
+  echo "→ Saving the AI key as a server secret"
+  supabase secrets set --env-file "$secrets_file"
+else
+  echo "→ No AI key set: the app will answer on the device"
+fi
 
 echo "→ Deploying server functions"
 supabase functions deploy ai-coach

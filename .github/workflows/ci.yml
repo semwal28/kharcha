@@ -59,3 +59,24 @@ jobs:
         with:
           deno-version: v2.x
       - run: deno check supabase/functions/ai-coach/index.ts supabase/functions/delete-account/index.ts
+
+  ios:
+    name: iOS build (no signing)
+    # macOS runners are free for public repositories. This only checks that
+    # the iOS app compiles; signing and TestFlight come later (docs/IOS.md).
+    runs-on: macos-latest
+    # Informational until the iOS setup in docs/IOS.md is finished.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.9"
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build iOS app without signing
+        run: >-
+          flutter build ios --release --no-codesign
+          --dart-define=SUPABASE_URL=${{ vars.SUPABASE_URL || 'https://hpbqhrfdwawnlleyazvl.supabase.co' }}
+          --dart-define=SUPABASE_PUBLISHABLE_KEY=${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_HmnJAMCfPyHJBxQxtRszkw_W_wS3W8n' }}

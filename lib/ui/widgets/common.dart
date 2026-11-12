@@ -26,6 +26,30 @@ const _icons = <String, IconData>{
 
 IconData categoryIcon(String key) => _icons[key] ?? Icons.sell_outlined;
 
+/// Each category has its own colour, so lists and charts read at a glance.
+const _catColors = <String, Color>{
+  'dining': Color(0xFFF97316),
+  'delivery': Color(0xFFF43F5E),
+  'groceries': Color(0xFF16A34A),
+  'transport': Color(0xFF2563EB),
+  'shopping': Color(0xFF9333EA),
+  'bills': Color(0xFFD97706),
+  'fun': Color(0xFFDB2777),
+  'health': Color(0xFF0D9488),
+  'care': Color(0xFFC026D3),
+  'subs': Color(0xFF4F46E5),
+  'rent': Color(0xFF0284C7),
+  'fees': Color(0xFFDC2626),
+  'other': Color(0xFF64748B),
+  'tag': Color(0xFF7C3AED),
+};
+
+/// The category's colour, lightened in dark mode so it stays readable.
+Color categoryColor(BuildContext context, String key) {
+  final c = _catColors[key] ?? _catColors['tag']!;
+  return Theme.of(context).brightness == Brightness.dark ? Color.lerp(c, Colors.white, .32)! : c;
+}
+
 class CatIcon extends StatelessWidget {
   const CatIcon(this.icon, {super.key, this.size = 34, this.bg, this.fg});
   final String icon;
@@ -34,12 +58,19 @@ class CatIcon extends StatelessWidget {
   final Color? fg;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: size,
-    height: size,
-    decoration: BoxDecoration(color: bg ?? context.k.surface2, borderRadius: BorderRadius.circular(size * .3)),
-    child: Icon(categoryIcon(icon), size: size * .52, color: fg ?? context.k.ink2),
-  );
+  Widget build(BuildContext context) {
+    final c = categoryColor(context, icon);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: bg ?? c.withValues(alpha: dark ? .2 : .13),
+        borderRadius: BorderRadius.circular(size * .3),
+      ),
+      child: Icon(categoryIcon(icon), size: size * .52, color: fg ?? c),
+    );
+  }
 }
 
 class KCard extends StatelessWidget {
@@ -56,6 +87,7 @@ class KCard extends StatelessWidget {
       color: color ?? context.k.surface,
       borderRadius: BorderRadius.circular(18),
       border: Border.all(color: context.k.line),
+      boxShadow: [BoxShadow(color: context.k.accent.withValues(alpha: .07), blurRadius: 18, offset: const Offset(0, 6))],
     ),
     child: child,
   );

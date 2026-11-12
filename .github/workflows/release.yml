@@ -51,7 +51,7 @@ jobs:
     env:
       SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://hpbqhrfdwawnlleyazvl.supabase.co' }}
       SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_HmnJAMCfPyHJBxQxtRszkw_W_wS3W8n' }}
-      AI_ENABLED: ${{ vars.AI_ENABLED || 'false' }}
+      AI_ENABLED: ${{ vars.AI_ENABLED || 'true' }}
       VERSION: ${{ needs.check.outputs.tag }}
     steps:
       - uses: actions/checkout@v4

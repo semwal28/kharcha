@@ -61,7 +61,8 @@ class InsightsScreen extends ConsumerWidget {
                 ],
               ),
       ),
-      if (ref.watch(aiCoachProvider).available) ...[const SectionHeader('AI savings plan'), const _AiPlanCard()],
+      const SectionHeader('AI savings plan'),
+      const _AiPlanCard(),
       const SectionHeader('This month'),
       GridView.count(
         crossAxisCount: 2,
@@ -201,6 +202,22 @@ class _AiPlanCardState extends ConsumerState<_AiPlanCard> {
   List<PlanItem>? _items;
   String? _error;
 
+  /// True when the plan came from the on-device rules, not the AI.
+  bool _local = false;
+
+  void _useLocal(MonthSummary s) {
+    final items = localPlan(s);
+    if (!mounted) return;
+    setState(() {
+      _local = true;
+      if (items.isEmpty) {
+        _error = 'Add a few weeks of expenses and your plan appears here.';
+      } else {
+        _items = items;
+      }
+    });
+  }
+
   Future<void> _run() async {
     final coach = ref.read(aiCoachProvider);
     final s = ref.read(summaryProvider)!;
@@ -208,12 +225,28 @@ class _AiPlanCardState extends ConsumerState<_AiPlanCard> {
     setState(() {
       _loading = true;
       _error = null;
+      _items = null;
     });
+    if (!coach.available) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      _useLocal(s);
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     try {
       final items = await coach.plan(aiSummary(s, data));
-      if (mounted) setState(() => _items = items);
+      if (mounted) {
+        setState(() {
+          _items = items;
+          _local = false;
+        });
+      }
     } on AiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (e.unavailable) {
+        _useLocal(s);
+      } else if (mounted) {
+        setState(() => _error = e.message);
+      }
     } catch (_) {
       if (mounted) setState(() => _error = 'Could not reach the server. Check your internet.');
     } finally {
@@ -224,14 +257,13 @@ class _AiPlanCardState extends ConsumerState<_AiPlanCard> {
   @override
   Widget build(BuildContext context) {
     final k = context.k;
-    final available = ref.watch(aiCoachProvider).available;
     Widget body;
     if (_loading) {
       body = Row(
         children: [
           SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2.2, color: k.accent)),
           const SizedBox(width: 10),
-          Text('Claude is thinking…', style: context.text.bodyMedium),
+          Text('Working out your plan…', style: context.text.bodyMedium),
         ],
       );
     } else if (_items != null) {
@@ -281,9 +313,15 @@ class _AiPlanCardState extends ConsumerState<_AiPlanCard> {
                 ),
               ).animate(delay: (i * 110).ms).fadeIn(duration: 350.ms).slideY(begin: .15, end: 0, curve: Curves.easeOutCubic),
             ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: LinkButton('New plan', onTap: _run),
+          Row(
+            children: [
+              LinkButton('New plan', onTap: _run),
+              const SizedBox(width: 12),
+              if (_local)
+                Expanded(
+                  child: Text('Made on your phone', textAlign: TextAlign.end, maxLines: 1, overflow: TextOverflow.ellipsis, style: context.text.bodySmall),
+                ),
+            ],
           ),
         ],
       );
@@ -292,10 +330,10 @@ class _AiPlanCardState extends ConsumerState<_AiPlanCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _error ?? (available ? 'A step-by-step plan from Claude, easiest first.' : OfflineAiCoach.message),
-            style: context.text.bodyMedium?.copyWith(color: _error != null ? k.bad : null),
+            _error ?? 'A step-by-step plan from your AI coach, easiest first.',
+            style: context.text.bodyMedium?.copyWith(color: _error != null && !_local ? k.bad : null),
           ),
-          if (available) ...[
+          ...[
             const SizedBox(height: 10),
             FilledButton.icon(
               onPressed: _run,

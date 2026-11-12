@@ -1,6 +1,6 @@
 # Spendwell
 
-An expense tracker for Android, iOS and the web. It shows where your money goes and finds specific ways to save, with an AI coach powered by Claude.
+An expense tracker for Android, iOS and the web. It shows where your money goes and finds specific ways to save, with a free AI coach.
 
 - **Try it in your browser:** https://semwal28.github.io/spendwell/
 - **Android app:** download the APK from [Releases](https://github.com/semwal28/spendwell/releases/latest).
@@ -23,7 +23,8 @@ Built with Flutter (one codebase for Android, iOS and web) and Supabase (login, 
 - **Home:** spent this month, budget used, safe to spend today, month-end forecast, the top saving tip, and recent expenses.
 - **Insights:** money leaks and habits with the ₹ you'd save, plus a daily spending chart.
   - Leaks found include price rises, double charges, too many video apps, late-night orders, café runs and late fees.
-- **AI savings plan and Ask AI chat:** Claude reads your month and answers in a few short lines.
+- **AI savings plan and Ask AI chat:** the AI coach reads your month and answers in a few short lines. It runs on a free AI model (Groq or Google Gemini free tier), or Claude if you add credits. Without either, the app answers on the device. Setup: [docs/AI_COACH.md](docs/AI_COACH.md).
+- **Bright, friendly look:** violet and mango colours, a colour for each category, a greeting and a 🔥 streak for days in a row you've logged spending.
 - **Plan tab:**
   - **Savings goals** with progress rings. Add or take out money; a burst plays when you reach a goal.
   - **Owed to you:** bills you split with friends. Tick them off when they pay you back.
@@ -63,7 +64,7 @@ lib/
   ui/                        screens, theme, motion widgets
 supabase/
   migrations/                database schema + row-level security
-  functions/ai-coach/        server function that calls Claude
+  functions/ai-coach/        AI coach: a free AI model (Groq/Gemini) or Claude
   functions/delete-account/  deletes an account and all its data
   tests/                     schema + security tests (plain Postgres)
 android/app/src/main/kotlin/ home screen widget (Android)
@@ -96,17 +97,17 @@ flutter test
 
 ## Connect the real backend
 
-You need a Supabase project, a Claude API key from [platform.claude.com](https://platform.claude.com), and the [Supabase CLI](https://supabase.com/docs/guides/cli).
+You need a Supabase project and the [Supabase CLI](https://supabase.com/docs/guides/cli). For the AI coach, add a free key from [console.groq.com](https://console.groq.com/keys) (or a Claude key as `ANTHROPIC_API_KEY`); without one, the app answers on the device. No CLI? [docs/AI_COACH.md](docs/AI_COACH.md) shows the same steps in the Supabase dashboard.
 
 ```bash
-export ANTHROPIC_API_KEY=your-key
+export AI_API_KEY=your-free-key
 ```
 
 ```bash
 scripts/deploy_backend.sh YOUR_PROJECT_REF
 ```
 
-The script creates the tables and security rules, saves the Claude key as a server secret, and deploys both server functions. Then, in the Supabase dashboard:
+The script creates the tables and security rules, saves the AI key as a server secret, and deploys both server functions. Then, in the Supabase dashboard:
 
 - **Authentication → Email templates → Magic link:** make sure the template includes `{{ .Token }}`, so people get a code.
 - **Authentication → Sign In / Providers → Email:** set **Email OTP Length** to **6**. The app expects a 6-digit code.
@@ -121,13 +122,13 @@ Run the app against it:
 flutter run --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
-The AI uses `claude-opus-5-5` by default; set the `CLAUDE_MODEL` secret to change it. Daily AI limits per plan (free 10, pro 100, family 200) are at the top of `supabase/functions/ai-coach/index.ts`.
+The AI coach uses the free model when `AI_API_KEY` is set (see [docs/AI_COACH.md](docs/AI_COACH.md)), otherwise Claude (`claude-opus-5-5`, change with `CLAUDE_MODEL`) when `ANTHROPIC_API_KEY` is set. Daily AI limits per plan (free 10, pro 100, family 200) are at the top of `supabase/functions/ai-coach/index.ts`.
 
 ### Security
 
 - Every table has row-level security, so a user can only read or change their own rows.
 - Users cannot change their own plan.
-- The Claude API key lives only on the server. The app never holds it.
+- AI keys live only on the server. The app never holds them.
 - `supabase/tests/run_local.sh` checks these rules against a local Postgres.
 
 ## Release
@@ -163,11 +164,16 @@ On the web, receipt scan, app lock and the home screen widget are not available.
 - **Budget alerts** show while the app is open. Alerts when the app is closed need push notifications from a server.
 - **Home screen widget** is Android only for now. iOS needs a widget extension built in Xcode.
 
+## iPhone
+
+The iOS app is the same Flutter code. CI checks that it compiles on every push. The plan to TestFlight and the App Store is in [docs/IOS.md](docs/IOS.md). Until then, iPhone users can add the web app to their home screen.
+
 ## Next up
 
 - Shared wallets for couples and flatmates
 - Push notifications for budget alerts
 - Voice entry and bank statement import
+- iPhone app on TestFlight ([docs/IOS.md](docs/IOS.md))
 - Paid plans and payments
 
 Fonts: Figtree and Familjen Grotesk, both under the SIL Open Font License.

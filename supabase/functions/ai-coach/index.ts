@@ -1,4 +1,4 @@
-// Spendwell AI coach: a Supabase Edge Function that calls Claude.
+// Spendwell AI coach: a Supabase Edge Function.
 //
 // POST /functions/v1/ai-coach   (Authorization: Bearer <user access token>)
 //   { "mode": "plan", "summary": "<month snapshot>" }
@@ -6,15 +6,40 @@
 //   { "mode": "chat", "summary": "...", "messages": [{ role, content }, ...] }
 //     -> { "reply": "..." }
 //
-// Secrets (set with `supabase secrets set`):
-//   ANTHROPIC_API_KEY   required
-//   CLAUDE_MODEL        optional, defaults to claude-opus-5-5
-// SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided by Supabase.
+// Which AI answers (set these as Edge Function secrets):
+//   Free:   AI_API_KEY    a free key from an OpenAI-compatible provider.
+//           AI_BASE_URL   optional, defaults to Groq: https://api.groq.com/openai/v1
+//                         Google Gemini: https://generativelanguage.googleapis.com/v1beta/openai
+//           AI_MODEL      optional, defaults to openai/gpt-oss-120b (Groq).
+//                         For Gemini use a Flash model, e.g. gemini-2.5-flash.
+//   Claude: ANTHROPIC_API_KEY (used when AI_API_KEY is not set)
+//           CLAUDE_MODEL  optional, defaults to claude-opus-5-5
+// With neither, the function answers 503 and the app uses its on-device coach.
+// SUPABASE_URL and the server key (SUPABASE_SERVICE_ROLE_KEY, or SUPABASE_SECRET_KEYS
+// on projects using the new API keys) are provided by Supabase.
 
 import Anthropic from "npm:@anthropic-ai/sdk@1.2.0";
 import { createClient } from "npm:@supabase/supabase-js@2.119.0";
 
+/** The server key: the legacy service_role key, or the default new secret key. */
+function serviceKey(): string {
+  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (legacy) return legacy;
+  try {
+    const keys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}") as Record<string, string>;
+    return keys.default ?? Object.values(keys)[0] ?? "";
+  } catch {
+    return "";
+  }
+}
+
 const MODEL = Deno.env.get("CLAUDE_MODEL") ?? "claude-opus-5-5";
+const FREE_KEY = Deno.env.get("AI_API_KEY") ?? "";
+const FREE_BASE = (Deno.env.get("AI_BASE_URL") ?? "https://api.groq.com/openai/v1").replace(/\/+$/, "");
+const FREE_MODEL = Deno.env.get("AI_MODEL") ?? "openai/gpt-oss-120b";
+const PROVIDER: "free" | "claude" | null = FREE_KEY ? "free" : Deno.env.get("ANTHROPIC_API_KEY") ? "claude" : null;
+// Free tiers have small per-minute token limits, so send a shorter snapshot.
+const MAX_FREE_SUMMARY_CHARS = 12_000;
 const DAILY_LIMIT: Record<string, number> = { free: 10, pro: 100, family: 200 };
 const MAX_SUMMARY_CHARS = 60_000;
 const MAX_TURNS = 10;
@@ -97,17 +122,77 @@ function textOf(content: Anthropic.Beta.BetaContentBlock[]): string {
     .trim();
 }
 
+class UpstreamError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
+
+/** One request to a free OpenAI-compatible chat completions API. */
+async function freeCompletion(system: string, turns: Turn[], wantJson: boolean): Promise<string> {
+  const res = await fetch(`${FREE_BASE}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${FREE_KEY}` },
+    body: JSON.stringify({
+      model: FREE_MODEL,
+      messages: [{ role: "system", content: system }, ...turns],
+      max_tokens: 4000,
+      temperature: 0.4,
+      ...(wantJson ? { response_format: { type: "json_object" } } : {}),
+    }),
+    signal: AbortSignal.timeout(45_000),
+  });
+  if (!res.ok) throw new UpstreamError(res.status, (await res.text()).slice(0, 300));
+  const data = await res.json();
+  const text = data?.choices?.[0]?.message?.content;
+  if (typeof text !== "string" || !text.trim()) throw new UpstreamError(502, "empty answer");
+  return text.trim();
+}
+
+/** Pulls the JSON object out of a reply that may have extra text around it. */
+function parseJsonObject(text: string): Record<string, unknown> {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) throw new SyntaxError("no JSON object");
+  return JSON.parse(text.slice(start, end + 1));
+}
+
+/** Keeps only well-formed plan items. */
+function cleanItems(raw: unknown): unknown[] {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const it of raw.slice(0, 6)) {
+    if (typeof it !== "object" || it === null) continue;
+    const r = it as Record<string, unknown>;
+    if (typeof r.title !== "string" || !r.title.trim()) continue;
+    const saving = Math.max(0, Math.round(Number(r.monthly_saving) || 0));
+    const difficulty = ["Easy", "Medium", "Hard"].includes(r.difficulty as string) ? r.difficulty : "Medium";
+    out.push({
+      title: r.title.trim().slice(0, 80),
+      why: String(r.why ?? "").trim().slice(0, 160),
+      action: String(r.action ?? "").trim().slice(0, 120),
+      monthly_saving: saving,
+      difficulty,
+    });
+  }
+  return out;
+}
+
+const PLAN_JSON_SHAPE = `Reply with JSON only, exactly this shape:
+{"items":[{"title":"...","why":"...","action":"...","monthly_saving":1200,"difficulty":"Easy"}]}
+difficulty is one of Easy, Medium, Hard.`;
+
 const anthropic = new Anthropic(); // reads ANTHROPIC_API_KEY
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json(405, { error: "method", message: "Use POST." });
-  if (!Deno.env.get("ANTHROPIC_API_KEY")) {
+  if (!PROVIDER) {
     return json(503, { error: "not_configured", message: "AI is not set up on the server yet." });
   }
 
   // 1. Who is asking? Verify the user's access token.
-  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey());
   const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
   const { data: userData } = jwt ? await admin.auth.getUser(jwt) : { data: null };
   const user = userData?.user;
@@ -144,7 +229,30 @@ Deno.serve(async (req) => {
   }
   await admin.from("ai_requests").insert({ user_id: user.id, kind: mode });
 
-  // 4. Ask Claude.
+  // 4a. Ask the free provider.
+  if (PROVIDER === "free") {
+    const data = summary.slice(0, MAX_FREE_SUMMARY_CHARS);
+    try {
+      if (mode === "plan") {
+        const text = await freeCompletion(`${PLAN_RULES}\n${PLAN_JSON_SHAPE}\n\nDATA\n${data}`, [{ role: "user", content: "Write my savings plan." }], true);
+        const items = cleanItems(parseJsonObject(text).items);
+        if (items.length === 0) return json(502, { error: "upstream", message: "The AI coach didn't return a plan. Try again." });
+        return json(200, { items });
+      }
+      return json(200, { reply: await freeCompletion(`${CHAT_RULES}\n\nDATA\n${data}`, turns!, false) });
+    } catch (err) {
+      if (err instanceof UpstreamError && err.status === 429) {
+        return json(503, { error: "busy", message: "The free AI is busy right now. Try again in a minute." });
+      }
+      if (err instanceof SyntaxError) {
+        return json(502, { error: "upstream", message: "The AI coach's plan came back garbled. Try again." });
+      }
+      console.error("free AI error", err instanceof UpstreamError ? `${err.status} ${err.message}` : err);
+      return json(502, { error: "upstream", message: "The AI coach could not answer right now. Try again." });
+    }
+  }
+
+  // 4b. Ask Claude.
   try {
     const system: Anthropic.Beta.BetaTextBlockParam[] = [
       {
